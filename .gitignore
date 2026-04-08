@@ -1,1 +1,8 @@
 /CON
+/node_modules
+/dist
+/runtime-dist
+/distribution-repo
+*.tsbuildinfo
+.claude/settings.local.json
+npm-debug.log*
