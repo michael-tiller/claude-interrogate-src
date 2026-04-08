@@ -1,0 +1,40 @@
+{
+  "name": "claude-interrogate",
+  "version": "0.1.0",
+  "description": "Internal design-doc interrogation plugin for Claude Code with MCP-backed interview, audit, and sync flows.",
+  "author": {
+    "name": "Internal Tools",
+    "url": "https://github.com/example/claude-interrogate"
+  },
+  "homepage": "https://github.com/example/claude-interrogate",
+  "repository": "https://github.com/example/claude-interrogate",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "design-docs",
+    "mcp",
+    "architecture",
+    "interview"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Claude Interrogate",
+    "shortDescription": "Interrogate, audit, and sync design docs",
+    "longDescription": "Internal design-doc tooling for Claude Code. It runs adversarial design interviews, generates house-style specs, audits doc sets for contradictions and stale questions, and syncs cross-references across related documents.",
+    "developerName": "Internal Tools",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/example/claude-interrogate",
+    "privacyPolicyURL": "https://github.com/example/claude-interrogate",
+    "termsOfServiceURL": "https://github.com/example/claude-interrogate",
+    "defaultPrompt": [
+      "Interrogate a new design concept against my existing docs",
+      "Audit this docs folder for contradictions and missing links",
+      "Sync cross-references across the current design-doc set"
+    ],
+    "brandColor": "#0F766E"
+  }
+}

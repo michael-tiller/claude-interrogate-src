@@ -1,0 +1,38 @@
+{
+  "name": "claude-interrogate-mcp",
+  "version": "0.1.0",
+  "description": "A Socratic design-document interviewer for Claude Code, shipped as an MCP server.",
+  "type": "module",
+  "bin": {
+    "interrogate": "./dist/cli.js",
+    "claude-interrogate-mcp": "./dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "sample-docs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node ./dist/server.js",
+    "cli": "node ./dist/cli.js",
+    "prepare:runtime-dist": "npm run build && node ./scripts/prepare-runtime-dist.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "design-docs",
+    "typescript"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@vitest/coverage-v8": "^4.1.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.3"
+  }
+}

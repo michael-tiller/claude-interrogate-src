@@ -1,0 +1,121 @@
+import path from "node:path";
+import { detectHouseStyle, loadDocFile, loadDocs, summarizeDocs } from "./docs.js";
+import { renderDefaultGoldenTemplate } from "./default-template.js";
+import { InterviewQuestion, InterviewStartResult } from "./types.js";
+
+export async function designInterviewStart(
+  concept: string,
+  docsDir: string,
+  options?: { challenge?: boolean; styleTemplatePath?: string }
+): Promise<InterviewStartResult> {
+  const docs = await loadDocs(docsDir);
+  const styleTemplate = options?.styleTemplatePath
+    ? await loadDocFile(path.resolve(options.styleTemplatePath))
+    : {
+        path: "<built-in-template>",
+        name: "default-golden-template.md",
+        title: "Default Golden Template",
+        content: renderDefaultGoldenTemplate()
+      };
+  const style = detectHouseStyle([styleTemplate, ...docs]);
+  const docSummaries = summarizeDocs(docs);
+  const knownDecisions = deriveKnownDecisions(docSummaries);
+  const contradictions = findPotentialContradictions(concept, docSummaries);
+  const questions = buildQuestions(concept, knownDecisions, contradictions, options?.challenge === true);
+
+  return {
+    concept,
+    docsDir: path.resolve(docsDir),
+    styleTemplatePath: styleTemplate.path === "<built-in-template>" ? undefined : styleTemplate.path,
+    challengeMode: options?.challenge ? "adversarial" : "standard",
+    style,
+    knownDecisions,
+    contradictions,
+    questions
+  };
+}
+
+function deriveKnownDecisions(summaries: string[]): string[] {
+  return summaries
+    .filter((summary) => /\b(decision|default|must|should|deferred|scope)\b/i.test(summary))
+    .slice(0, 10);
+}
+
+function findPotentialContradictions(concept: string, summaries: string[]): string[] {
+  return summaries
+    .filter((summary) => summary.toLowerCase().includes("deferred") || summary.toLowerCase().includes("not"))
+    .map((summary) => `${concept}: verify against existing note -> ${summary}`)
+    .slice(0, 5);
+}
+
+function buildQuestions(
+  concept: string,
+  knownDecisions: string[],
+  contradictions: string[],
+  challenge: boolean
+): InterviewQuestion[] {
+  const foundationsKnown = knownDecisions.join(" ").toLowerCase();
+  const suffix = challenge
+    ? " Be specific: vague answers are not enough to justify a design decision."
+    : "";
+
+  const questions: InterviewQuestion[] = [
+    {
+      id: "problem",
+      theme: "Foundations",
+      question: `What concrete decision does "${concept}" need to lock down, and what breaks if it stays ambiguous?${suffix}`,
+      rationale: challenge
+        ? "Start from the decision boundary and force a falsifiable claim."
+        : "Start from the decision boundary so later questions stay scoped."
+    },
+    {
+      id: "success",
+      theme: "Foundations",
+      question: `What outcome would make "${concept}" clearly successful for the first release, and what evidence would show the current idea is not ready yet?${suffix}`,
+      rationale: "Defines the bar for writing the document and for rejecting scope creep.",
+      dependsOn: "problem"
+    },
+    {
+      id: "shape",
+      theme: "System Shape",
+      question: `Which implementation shape are you choosing for "${concept}", what alternatives are you explicitly rejecting, and why do they fail?${suffix}`,
+      rationale: "Forces trade-offs into the open instead of collecting description.",
+      dependsOn: "success"
+    },
+    {
+      id: "inspirations",
+      theme: "Inspirations",
+      question: `Are there any reference products, systems, workflows, or prior designs influencing "${concept}"? If so, which specific design moves are applicable here, and why do they transfer to this problem?${suffix}`,
+      rationale: "Turns optional inspirations into concrete transferable design choices instead of loose references.",
+      dependsOn: "shape"
+    },
+    {
+      id: "constraints",
+      theme: "Constraints",
+      question: `What existing constraints from sibling docs must "${concept}" obey, and which tempting shortcuts are invalid because of them?${suffix}`,
+      rationale: "Prevents re-asking already settled decisions.",
+      dependsOn: "inspirations"
+    },
+    {
+      id: "edges",
+      theme: "Failure Modes",
+      question: `What edge cases or failure modes should the spec call out now instead of leaving implicit, and what would be irresponsible to postpone?${suffix}`,
+      rationale: "Captures the first set of operational risks.",
+      dependsOn: "constraints"
+    }
+  ];
+
+  if (!foundationsKnown.includes("contradiction")) {
+    questions.push({
+      id: "contradictions",
+      theme: "Consistency",
+      question: contradictions.length
+        ? `Your docs suggest a few possible conflicts. Which of these is still authoritative, which should "${concept}" override, and why is that override justified? ${contradictions.join(" | ")}`
+        : `If "${concept}" changes an existing assumption, which document should be updated alongside it, and what would break if you skipped that update?`,
+      rationale: "Turns contradictions into explicit decisions.",
+      dependsOn: "constraints"
+    });
+  }
+
+  return questions;
+}
