@@ -225,6 +225,11 @@ The question queue is kept internal; ask them one at a time and only surface the
 - `docs/` project notes, including Claude Code integration status.
 - `PLAN.md` the original implementation brief used for this scaffold.
 
+
+Plugin Repository:
+
+- https://github.com/michael-tiller/claude-interrogate
+
 ## Deferred
 
 - Multi-session interview state.
