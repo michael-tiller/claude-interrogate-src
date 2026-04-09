@@ -4,6 +4,8 @@ import path from "node:path";
 const root = process.cwd();
 const runtimeRoot = path.join(root, "runtime-dist");
 const distributionRoot = path.join(root, "distribution-repo");
+const licenseSource = path.join(root, "LICENSE.md");
+const licenseDest = path.join(runtimeRoot, "LICENSE.md");
 const pluginSource = path.join(root, "plugins", "claude-interrogate");
 const pluginDest = path.join(runtimeRoot, "plugins", "claude-interrogate");
 const distSource = path.join(root, "dist");
@@ -38,6 +40,7 @@ await mkdir(path.dirname(distDest), { recursive: true });
 
 await cp(pluginSource, pluginDest, { recursive: true });
 await cp(distSource, distDest, { recursive: true });
+await cp(licenseSource, licenseDest);
 
 const pluginMcpPath = path.join(pluginDest, ".mcp.json");
 const pluginMcp = JSON.parse(await readFile(pluginMcpPath, "utf8"));
