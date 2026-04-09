@@ -18,12 +18,17 @@ const distributionPluginManifestPath = path.join(
   ".codex-plugin",
   "plugin.json",
 );
+const distributionMarketplacePath = path.join(distributionRoot, "marketplace.json");
 
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
 
 await assertExists(distributionRoot, "distribution-repo/ is missing. Clone or restore the distro repo checkout.");
 await assertExists(distributionGitDir, "distribution-repo/.git is missing. The distro repo must remain a real checkout.");
+await assertExists(
+  distributionMarketplacePath,
+  "distribution-repo/marketplace.json is missing. Claude Code marketplace add expects a root marketplace.json.",
+);
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const distributionManifest = await readManifest(distributionPluginManifestPath);

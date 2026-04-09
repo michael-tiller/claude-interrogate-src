@@ -12,6 +12,7 @@ const distSource = path.join(root, "dist");
 const distDest = path.join(runtimeRoot, "runtime", "dist");
 const marketplaceSource = path.join(root, ".agents", "plugins", "marketplace.json");
 const marketplaceDest = path.join(runtimeRoot, ".agents", "plugins", "marketplace.json");
+const marketplaceRootDest = path.join(runtimeRoot, "marketplace.json");
 const syncDistributionRepo = process.argv.includes("--sync-distribution-repo");
 
 async function pathExists(targetPath) {
@@ -51,6 +52,7 @@ const marketplace = JSON.parse(await readFile(marketplaceSource, "utf8"));
 marketplace.name = "claude-interrogate-runtime";
 marketplace.interface.displayName = "Claude Interrogate";
 await writeFile(marketplaceDest, JSON.stringify(marketplace, null, 2) + "\n", "utf8");
+await writeFile(marketplaceRootDest, JSON.stringify(marketplace, null, 2) + "\n", "utf8");
 
 const runtimeReadme = `# Claude Interrogate Runtime
 Updated: 2026-04-08
@@ -61,7 +63,7 @@ Contents:
 
 - \`plugins/claude-interrogate/\` installable plugin payload
 - \`runtime/dist/\` built MCP server runtime
-- \`.agents/plugins/marketplace.json\` marketplace metadata
+- \`marketplace.json\` Claude Code marketplace metadata
 
 Current command surface:
 
