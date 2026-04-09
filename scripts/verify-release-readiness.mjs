@@ -13,12 +13,16 @@ const sourcePluginManifestPath = path.join(
 );
 const distributionPluginManifestPath = path.join(
   distributionRoot,
-  "plugins",
-  "claude-interrogate",
+  "plugin",
   ".codex-plugin",
   "plugin.json",
 );
-const distributionMarketplacePath = path.join(distributionRoot, "marketplace.json");
+const distributionMarketplacePath = path.join(distributionRoot, ".claude-plugin", "marketplace.json");
+const distributionRepoPluginManifestPath = path.join(
+  distributionRoot,
+  ".claude-plugin",
+  "plugin.json",
+);
 
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
@@ -27,14 +31,20 @@ await assertExists(distributionRoot, "distribution-repo/ is missing. Clone or re
 await assertExists(distributionGitDir, "distribution-repo/.git is missing. The distro repo must remain a real checkout.");
 await assertExists(
   distributionMarketplacePath,
-  "distribution-repo/marketplace.json is missing. Claude Code marketplace add expects a root marketplace.json.",
+  "distribution-repo/.claude-plugin/marketplace.json is missing. Claude Code marketplace add expects the public marketplace manifest there.",
+);
+await assertExists(
+  distributionRepoPluginManifestPath,
+  "distribution-repo/.claude-plugin/plugin.json is missing.",
 );
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const distributionManifest = await readManifest(distributionPluginManifestPath);
+const distributionMarketplace = await readManifest(distributionMarketplacePath);
 
 assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`);
 assertPublicMetadata(distributionManifest, `Distribution plugin manifest ${distributionPluginManifestPath}`);
+assertMarketplaceMetadata(distributionMarketplace, distributionMarketplacePath);
 
 console.log("Release readiness checks passed.");
 
@@ -98,5 +108,37 @@ function assertPublicMetadata(manifest, label) {
 
   if (failures.length > 0) {
     throw new Error(`${label} failed release-readiness checks:\n- ${failures.join("\n- ")}`);
+  }
+}
+
+function assertMarketplaceMetadata(marketplace, label) {
+  const failures = [];
+
+  if (marketplace.name !== "michael-tiller") {
+    failures.push('name must be "michael-tiller"');
+  }
+
+  if (marketplace.owner?.name !== expectedDeveloperName) {
+    failures.push(`owner.name must be "${expectedDeveloperName}"`);
+  }
+
+  if (marketplace.metadata?.homepage !== expectedRepoUrl) {
+    failures.push(`metadata.homepage must be "${expectedRepoUrl}"`);
+  }
+
+  if (!Array.isArray(marketplace.plugins) || marketplace.plugins.length !== 1) {
+    failures.push("plugins must contain exactly one public plugin entry");
+  } else {
+    const plugin = marketplace.plugins[0];
+    if (plugin.name !== "claude-interrogate") {
+      failures.push('plugins[0].name must be "claude-interrogate"');
+    }
+    if (plugin.source !== "./plugin") {
+      failures.push('plugins[0].source must be "./plugin"');
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`${label} failed marketplace checks:\n- ${failures.join("\n- ")}`);
   }
 }

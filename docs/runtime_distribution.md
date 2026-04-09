@@ -15,9 +15,9 @@ npm run prepare:runtime-dist
 That creates:
 
 - [runtime-dist/README.md](E:/Personal/claude-interrogate/runtime-dist/README.md)
-- [runtime-dist/plugins/claude-interrogate](E:/Personal/claude-interrogate/runtime-dist/plugins/claude-interrogate)
+- [runtime-dist/.claude-plugin/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/.claude-plugin/marketplace.json)
+- [runtime-dist/plugin](E:/Personal/claude-interrogate/runtime-dist/plugin)
 - [runtime-dist/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/runtime/dist)
-- [runtime-dist/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/marketplace.json)
 
 If `distribution-repo/` is a checked-out copy of the public runtime repo, you can also refresh it in place without deleting its `.git/` metadata:
 
