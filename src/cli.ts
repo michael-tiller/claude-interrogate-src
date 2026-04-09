@@ -5,9 +5,10 @@ import { createInterface } from "node:readline/promises";
 import { bootstrapDocsSkeleton } from "./bootstrap.js";
 import { designAudit } from "./audit.js";
 import { resolveDefaultDocsDir, resolveDefaultStyleTemplate } from "./config.js";
-import { formatAudit, formatInterviewStart, formatSync } from "./format.js";
+import { formatAudit, formatInterviewStart, formatSummary, formatSync } from "./format.js";
 import { designDocGenerate } from "./generate.js";
 import { designInterviewStart } from "./interview.js";
+import { designSummarize } from "./summarize.js";
 import { designCrossRefSync } from "./sync.js";
 
 async function main(): Promise<void> {
@@ -34,6 +35,20 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (args.includes("--summarize")) {
+    const concept = valueAfter(args, "--summarize");
+    if (!concept) {
+      printHelp();
+      process.exitCode = 1;
+      return;
+    }
+    const docsDir = path.resolve(valueAfter(args, "--docs") ?? await resolveDefaultDocsDir(process.cwd()));
+    const styleTemplatePath = valueAfter(args, "--style") ?? await resolveDefaultStyleTemplate(process.cwd());
+    const report = await designSummarize(concept, docsDir, styleTemplatePath);
+    console.log(formatSummary(report));
+    return;
+  }
+
   const concept = args[0];
   if (!concept || concept.startsWith("-")) {
     printHelp();
@@ -51,12 +66,23 @@ async function main(): Promise<void> {
   }
 
   const challenge = args.includes("--challenge");
-  const interview = await designInterviewStart(concept, docsDir, { challenge, styleTemplatePath });
+  const challengeMode = args.includes("--easy")
+    ? "easy"
+    : challenge
+      ? "adversarial"
+      : "standard";
+  const depthMode = args.includes("--fast") ? "fast" : "standard";
+  const interview = await designInterviewStart(concept, docsDir, {
+    challenge,
+    challengeMode,
+    depthMode,
+    styleTemplatePath
+  });
   console.log(formatInterviewStart(interview));
 
   let responses = collectResponseFlags(args);
   if (Object.keys(responses).length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
-    responses = await runInteractiveInterview(interview.questions, challenge);
+    responses = await runInteractiveInterview(interview.questions, challengeMode);
   }
 
   if (Object.keys(responses).length === 0) {
@@ -110,12 +136,16 @@ function slugify(value: string): string {
 }
 
 function printHelp(): void {
-  console.log(`interrogate <concept> [--docs DIR] [--challenge] [--out FILE]
+  console.log(`interrogate <concept> [--docs DIR] [--easy|--challenge] [--fast] [--out FILE]
 interrogate --audit [--docs DIR]
 interrogate --sync [--docs DIR]
+interrogate --summarize CONCEPT [--docs DIR]
 
 Optional response flags:
   --style FILE
+  --easy
+  --challenge
+  --fast
   --problem TEXT
   --success TEXT
   --shape TEXT
@@ -127,7 +157,7 @@ Optional response flags:
 
 async function runInteractiveInterview(
   questions: Array<{ id: string; question: string }>,
-  challenge: boolean
+  challengeMode: "easy" | "standard" | "adversarial"
 ): Promise<Record<string, string>> {
   const rl = createInterface({
     input: process.stdin,
@@ -143,7 +173,7 @@ async function runInteractiveInterview(
       responses[question.id] = answer;
 
       if (needsFollowUp(question.id, answer)) {
-        const followUp = await rl.question(`${followUpPrompt(question.id, challenge)}\n> `);
+        const followUp = await rl.question(`${followUpPrompt(question.id, challengeMode)}\n> `);
         responses[question.id] = `${answer}\n\nFollow-up: ${followUp.trim()}`.trim();
       }
     }
@@ -166,9 +196,14 @@ function hasMeaningfulInspirations(value: string): boolean {
   return !/^(none|n\/a|na|no meaningful references?|no inspirations?)\.?$/i.test(value.trim());
 }
 
-function followUpPrompt(questionId: string, challenge: boolean): string {
-  const challengeSuffix = challenge
+function followUpPrompt(
+  questionId: string,
+  challengeMode: "easy" | "standard" | "adversarial"
+): string {
+  const challengeSuffix = challengeMode === "adversarial"
     ? " Name the rejected alternative or failure mode explicitly."
+    : challengeMode === "easy"
+      ? " Keep the answer concrete, but a short answer is fine."
     : "";
 
   switch (questionId) {

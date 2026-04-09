@@ -6,7 +6,12 @@ import { InterviewQuestion, InterviewStartResult } from "./types.js";
 export async function designInterviewStart(
   concept: string,
   docsDir: string,
-  options?: { challenge?: boolean; styleTemplatePath?: string }
+  options?: {
+    challenge?: boolean;
+    challengeMode?: "easy" | "standard" | "adversarial";
+    depthMode?: "fast" | "standard";
+    styleTemplatePath?: string;
+  }
 ): Promise<InterviewStartResult> {
   const docs = await loadDocs(docsDir);
   const styleTemplate = options?.styleTemplatePath
@@ -21,13 +26,16 @@ export async function designInterviewStart(
   const docSummaries = summarizeDocs(docs);
   const knownDecisions = deriveKnownDecisions(docSummaries);
   const contradictions = findPotentialContradictions(concept, docSummaries);
-  const questions = buildQuestions(concept, knownDecisions, contradictions, options?.challenge === true);
+  const challengeMode = normalizeChallengeMode(options);
+  const depthMode = options?.depthMode === "fast" ? "fast" : "standard";
+  const questions = buildQuestions(concept, knownDecisions, contradictions, challengeMode, depthMode);
 
   return {
     concept,
     docsDir: path.resolve(docsDir),
     styleTemplatePath: styleTemplate.path === "<built-in-template>" ? undefined : styleTemplate.path,
-    challengeMode: options?.challenge ? "adversarial" : "standard",
+    challengeMode,
+    depthMode,
     style,
     knownDecisions,
     contradictions,
@@ -52,20 +60,26 @@ function buildQuestions(
   concept: string,
   knownDecisions: string[],
   contradictions: string[],
-  challenge: boolean
+  challengeMode: "easy" | "standard" | "adversarial",
+  depthMode: "fast" | "standard"
 ): InterviewQuestion[] {
   const foundationsKnown = knownDecisions.join(" ").toLowerCase();
-  const suffix = challenge
-    ? " Be specific: vague answers are not enough to justify a design decision."
-    : "";
+  const suffix =
+    challengeMode === "adversarial"
+      ? " Be specific: vague answers are not enough to justify a design decision."
+      : challengeMode === "easy"
+        ? " Keep it concrete, but concise is fine."
+        : "";
 
   const questions: InterviewQuestion[] = [
     {
       id: "problem",
       theme: "Foundations",
       question: `What concrete decision does "${concept}" need to lock down, and what breaks if it stays ambiguous?${suffix}`,
-      rationale: challenge
+      rationale: challengeMode === "adversarial"
         ? "Start from the decision boundary and force a falsifiable claim."
+        : challengeMode === "easy"
+          ? "Start from the decision boundary without overcomplicating the first pass."
         : "Start from the decision boundary so later questions stay scoped."
     },
     {
@@ -83,18 +97,11 @@ function buildQuestions(
       dependsOn: "success"
     },
     {
-      id: "inspirations",
-      theme: "Inspirations",
-      question: `Are there any reference products, systems, workflows, or prior designs influencing "${concept}"? If so, which specific design moves are applicable here, and why do they transfer to this problem?${suffix}`,
-      rationale: "Turns optional inspirations into concrete transferable design choices instead of loose references.",
-      dependsOn: "shape"
-    },
-    {
       id: "constraints",
       theme: "Constraints",
       question: `What existing constraints from sibling docs must "${concept}" obey, and which tempting shortcuts are invalid because of them?${suffix}`,
       rationale: "Prevents re-asking already settled decisions.",
-      dependsOn: "inspirations"
+      dependsOn: depthMode === "fast" ? "shape" : "inspirations"
     },
     {
       id: "edges",
@@ -105,7 +112,17 @@ function buildQuestions(
     }
   ];
 
-  if (!foundationsKnown.includes("contradiction")) {
+  if (depthMode !== "fast") {
+    questions.splice(3, 0, {
+      id: "inspirations",
+      theme: "Inspirations",
+      question: `Are there any reference products, systems, workflows, or prior designs influencing "${concept}"? If so, which specific design moves are applicable here, and why do they transfer to this problem?${suffix}`,
+      rationale: "Turns optional inspirations into concrete transferable design choices instead of loose references.",
+      dependsOn: "shape"
+    });
+  }
+
+  if (depthMode !== "fast" && !foundationsKnown.includes("contradiction")) {
     questions.push({
       id: "contradictions",
       theme: "Consistency",
@@ -118,4 +135,16 @@ function buildQuestions(
   }
 
   return questions;
+}
+
+function normalizeChallengeMode(options:
+  | {
+      challenge?: boolean;
+      challengeMode?: "easy" | "standard" | "adversarial";
+    }
+  | undefined): "easy" | "standard" | "adversarial" {
+  if (options?.challengeMode) {
+    return options.challengeMode;
+  }
+  return options?.challenge ? "adversarial" : "standard";
 }

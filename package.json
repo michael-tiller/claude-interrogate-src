@@ -1,6 +1,6 @@
 {
   "name": "claude-interrogate-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Socratic design-document interviewer for Claude Code, shipped as an MCP server.",
   "type": "module",
   "bin": {
@@ -17,7 +17,8 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node ./dist/server.js",
     "cli": "node ./dist/cli.js",
-    "prepare:runtime-dist": "npm run build && node ./scripts/prepare-runtime-dist.mjs"
+    "prepare:runtime-dist": "npm run build && node ./scripts/prepare-runtime-dist.mjs",
+    "prepare:distribution-repo": "npm run build && node ./scripts/prepare-runtime-dist.mjs --sync-distribution-repo"
   },
   "keywords": [
     "mcp",

@@ -208,7 +208,7 @@ function bodyFor(
   toneCues: string[]
 ): string {
   if (response?.trim()) {
-    return response.trim();
+    return normalizeTypography(response.trim());
   }
 
   const defaults: Record<string, string> = {
@@ -227,7 +227,7 @@ function bodyFor(
   if (toneCues.includes("parenthetical clarifications")) {
     text = `${text} (scope: v1).`;
   }
-  return text;
+  return normalizeTypography(text);
 }
 
 function hasMeaningfulInspirations(value: string | undefined): boolean {
@@ -253,4 +253,19 @@ function toTitle(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function normalizeTypography(value: string): string {
+  return value
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'")
+    .replace(/—/g, " - ")
+    .replace(/–/g, "-")
+    .replace(/−/g, "-")
+    .replace(/→/g, "->")
+    .replace(/§/g, "Section ")
+    .replace(/…/g, "...")
+    .replace(/\u00A0/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +\n/g, "\n");
 }

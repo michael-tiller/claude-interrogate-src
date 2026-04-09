@@ -19,6 +19,12 @@ That creates:
 - [runtime-dist/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/runtime/dist)
 - [runtime-dist/.agents/plugins/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/.agents/plugins/marketplace.json)
 
+If `distribution-repo/` is a checked-out copy of the public runtime repo, you can also refresh it in place without deleting its `.git/` metadata:
+
+```bash
+npm run prepare:distribution-repo
+```
+
 ## Intended Split
 
 - Internal repo:
@@ -37,8 +43,8 @@ That creates:
 In the runtime repo:
 
 ```text
-/plugin marketplace add <runtime-repo>
-/plugin install claude-interrogate-runtime@claude-interrogate
+/plugin marketplace add michael-tiller/claude-interrogate
+/plugin install claude-interrogate
 ```
 
 After install, users should get:
@@ -50,4 +56,4 @@ After install, users should get:
 
 ## Current Limitation
 
-This repo now prepares the runtime payload, but it does not yet automate pushing `runtime-dist/` to a separate repository. That release/publish step is still manual.
+This repo can now refresh a local `distribution-repo/` checkout while preserving `.git/`, but pushing that repo is still a separate manual git step.

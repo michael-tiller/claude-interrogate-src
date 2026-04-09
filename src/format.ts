@@ -1,4 +1,4 @@
-import { AuditReport, InterviewStartResult, SyncReport } from "./types.js";
+import { AuditReport, InterviewStartResult, SummaryReport, SyncReport } from "./types.js";
 
 export function formatInterviewStart(result: InterviewStartResult): string {
   return [
@@ -43,6 +43,23 @@ export function formatSync(report: SyncReport): string {
     "",
     "Notes:",
     ...(report.notes.length ? report.notes.map((note) => `- ${note}`) : ["- None."])
+  ].join("\n");
+}
+
+export function formatSummary(report: SummaryReport): string {
+  return [
+    `Summary for ${report.concept}`,
+    `Docs Dir: ${report.docsDir}`,
+    `Style: ${report.style.sectionNumbering}; cross-refs="${report.style.crossRefHeading}"; open-questions="${report.style.openQuestionsHeading}"`,
+    "",
+    "Learned:",
+    ...(report.learned.length ? report.learned.map((item) => `- ${item}`) : ["- No grounded matches found."]),
+    "",
+    "Unresolved:",
+    ...(report.unresolved.length ? report.unresolved.map((item) => `- ${item}`) : ["- None surfaced in matching sections."]),
+    "",
+    "Related Docs:",
+    ...(report.relatedDocs.length ? report.relatedDocs.map((item) => `- ${item}`) : ["- None."])
   ].join("\n");
 }
 

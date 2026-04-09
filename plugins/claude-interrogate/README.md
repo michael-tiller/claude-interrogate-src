@@ -6,7 +6,17 @@ Install this plugin from a Claude Code marketplace to get design-doc commands an
 Commands:
 
 - `/claude-interrogate:interrogate <concept> [docs-dir]`
+- `/claude-interrogate:interrogate-easy <concept> [docs-dir]`
+- `/claude-interrogate:interrogate-fast <concept> [docs-dir]`
 - `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
+- `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
+- `/claude-interrogate:distill <concept> [docs-dir]`
+- `/claude-interrogate:distill-hard <concept> [docs-dir]`
+- `/claude-interrogate:extricate <concept> [docs-dir]`
+- `/claude-interrogate:trace <concept> [docs-dir]`
+- `/claude-interrogate:trace --index [docs-dir]`
+- `/claude-interrogate:convert <source> [docs-dir]`
+- `/claude-interrogate:summarize <concept> [docs-dir]`
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 

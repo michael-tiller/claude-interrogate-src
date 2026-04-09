@@ -1,14 +1,36 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
 const runtimeRoot = path.join(root, "runtime-dist");
+const distributionRoot = path.join(root, "distribution-repo");
 const pluginSource = path.join(root, "plugins", "claude-interrogate");
 const pluginDest = path.join(runtimeRoot, "plugins", "claude-interrogate");
 const distSource = path.join(root, "dist");
 const distDest = path.join(runtimeRoot, "runtime", "dist");
 const marketplaceSource = path.join(root, ".agents", "plugins", "marketplace.json");
 const marketplaceDest = path.join(runtimeRoot, ".agents", "plugins", "marketplace.json");
+const syncDistributionRepo = process.argv.includes("--sync-distribution-repo");
+
+async function pathExists(targetPath) {
+  try {
+    await stat(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function clearDirectory(targetDir, preservedNames = []) {
+  const entries = await readdir(targetDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (preservedNames.includes(entry.name)) {
+      continue;
+    }
+
+    await rm(path.join(targetDir, entry.name), { recursive: true, force: true });
+  }
+}
 
 await rm(runtimeRoot, { recursive: true, force: true });
 await mkdir(path.dirname(marketplaceDest), { recursive: true });
@@ -38,16 +60,53 @@ Contents:
 - \`runtime/dist/\` built MCP server runtime
 - \`.agents/plugins/marketplace.json\` marketplace metadata
 
-Install flow:
+Current command surface:
 
-1. Publish this folder to the distribution repository root.
-2. In Claude Code, add that repository as a marketplace.
-3. Install:
+- \`/claude-interrogate:interrogate <concept> [docs-dir]\`
+- \`/claude-interrogate:interrogate-easy <concept> [docs-dir]\`
+- \`/claude-interrogate:interrogate-fast <concept> [docs-dir]\`
+- \`/claude-interrogate:interrogate-hard <concept> [docs-dir]\`
+- \`/claude-interrogate:reinterrogate <doc-path> [docs-dir]\`
+- \`/claude-interrogate:distill <concept> [docs-dir]\`
+- \`/claude-interrogate:distill-hard <concept> [docs-dir]\`
+- \`/claude-interrogate:extricate <concept> [docs-dir]\`
+- \`/claude-interrogate:trace <concept> [docs-dir]\`
+- \`/claude-interrogate:convert <source> [docs-dir]\`
+- \`/claude-interrogate:summarize <concept> [docs-dir]\`
+- \`/claude-interrogate:audit-docs [docs-dir]\`
+- \`/claude-interrogate:sync-docs [docs-dir]\`
+
+Install from the plugin marketplace inside Claude Code:
 
 \`\`\`text
-/plugin marketplace add <distribution-repo>
-/plugin install claude-interrogate-runtime@claude-interrogate
+/plugin marketplace add michael-tiller/claude-interrogate
+/plugin install claude-interrogate
 \`\`\`
+
+Repository:
+
+- https://github.com/michael-tiller/claude-interrogate
+
+Notes:
+
+- \`summarize\` is read-only and does not interrogate or write.
+- \`trace\` is read-only structural mapping of authority, dependencies, and drift.
+- \`distill\` writes a separate exploratory artifact only when explicitly requested; it does not replace the canonical spec.
+- \`convert\` is for controlled promotion or transformation between doc forms.
+- \`extricate\` is for dependency-aware removal, retirement, or replacement planning.
+- \`reinterrogate\` is for modernizing an existing spec against newer sibling knowledge.
 `;
 
 await writeFile(path.join(runtimeRoot, "README.md"), runtimeReadme, "utf8");
+await writeFile(path.join(runtimeRoot, ".gitignore"), ".DS_Store\nThumbs.db\n.vscode/\n", "utf8");
+
+if (syncDistributionRepo) {
+  if (!(await pathExists(distributionRoot))) {
+    throw new Error(
+      "distribution-repo/ does not exist. Clone or create the distribution repo before using --sync-distribution-repo.",
+    );
+  }
+
+  await clearDirectory(distributionRoot, [".git"]);
+  await cp(runtimeRoot, distributionRoot, { recursive: true });
+}

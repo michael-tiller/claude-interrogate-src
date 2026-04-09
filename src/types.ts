@@ -29,7 +29,8 @@ export interface InterviewStartResult {
   concept: string;
   docsDir: string;
   styleTemplatePath?: string;
-  challengeMode: "standard" | "adversarial";
+  challengeMode: "easy" | "standard" | "adversarial";
+  depthMode: "fast" | "standard";
   style: HouseStyle;
   knownDecisions: string[];
   contradictions: string[];
@@ -64,4 +65,14 @@ export interface SyncReport {
   style: HouseStyle;
   updatedFiles: string[];
   notes: string[];
+}
+
+export interface SummaryReport {
+  concept: string;
+  docsDir: string;
+  styleTemplatePath?: string;
+  style: HouseStyle;
+  learned: string[];
+  unresolved: string[];
+  relatedDocs: string[];
 }
