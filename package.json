@@ -15,10 +15,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "check:release": "node ./scripts/verify-release-readiness.mjs",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run check && npm run test:run && npm run check:release",
     "start": "node ./dist/server.js",
     "cli": "node ./dist/cli.js",
-    "prepare:runtime-dist": "npm run build && node ./scripts/prepare-runtime-dist.mjs",
-    "prepare:distribution-repo": "npm run build && node ./scripts/prepare-runtime-dist.mjs --sync-distribution-repo"
+    "prepare:runtime-dist": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs",
+    "prepare:distribution-repo": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs --sync-distribution-repo"
   },
   "keywords": [
     "mcp",
