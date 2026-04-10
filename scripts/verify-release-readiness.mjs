@@ -220,33 +220,41 @@ function assertPluginMcpConfig(config, label) {
     if (server.command !== "node") {
       failures.push('mcpServers["claude-interrogate"].command must be "node"');
     }
-    if (!Array.isArray(server.args) || server.args.length !== 2) {
+    if (!Array.isArray(server.args) || server.args.length !== 3) {
       failures.push(
-        'mcpServers["claude-interrogate"].args must contain ["-e", "<script>"]',
+        'mcpServers["claude-interrogate"].args must contain ["--input-type=commonjs", "-e", "<script>"]',
       );
     } else {
-      if (server.args[0] !== "-e") {
-        failures.push('mcpServers["claude-interrogate"].args[0] must be "-e"');
-      }
-      if (typeof server.args[1] !== "string") {
+      if (server.args[0] !== "--input-type=commonjs") {
         failures.push(
-          'mcpServers["claude-interrogate"].args[1] must be a script that loads ./runtime/dist/server.js',
+          'mcpServers["claude-interrogate"].args[0] must be "--input-type=commonjs"',
+        );
+      }
+      if (server.args[1] !== "-e") {
+        failures.push('mcpServers["claude-interrogate"].args[1] must be "-e"');
+      }
+      if (typeof server.args[2] !== "string") {
+        failures.push(
+          'mcpServers["claude-interrogate"].args[2] must be a script that loads ./runtime/dist/server.js',
         );
       } else {
         const requiredTokens = [
           "CLAUDE_PLUGIN_ROOT",
           "CODEX_PLUGIN_ROOT",
           "PLUGIN_ROOT",
+          "INIT_CWD",
+          "PWD",
           "runtime",
           "dist",
           "server.js",
+          "claude-interrogate MCP server",
         ];
         const missingTokens = requiredTokens.filter(
-          (token) => !server.args[1].includes(token),
+          (token) => !server.args[2].includes(token),
         );
         if (missingTokens.length > 0) {
           failures.push(
-            `mcpServers["claude-interrogate"].args[1] must be a script that loads ./runtime/dist/server.js (missing: ${missingTokens.join(", ")})`,
+            `mcpServers["claude-interrogate"].args[2] must be a script that loads ./runtime/dist/server.js (missing: ${missingTokens.join(", ")})`,
           );
         }
       }
