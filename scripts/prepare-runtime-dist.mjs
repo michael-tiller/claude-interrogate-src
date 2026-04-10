@@ -43,6 +43,16 @@ await cp(pluginSource, claudePluginDest, { recursive: true });
 await cp(distSource, distDest, { recursive: true });
 await cp(licenseSource, licenseDest);
 
+// Overwrite server.js in both runtime locations with the self-contained bundle.
+// This eliminates the need for node_modules in the distribution.
+const bundlePath = path.join(distSource, "server.bundle.js");
+if (await pathExists(bundlePath)) {
+  await cp(bundlePath, path.join(distDest, "server.js"));
+  await cp(bundlePath, path.join(claudePluginDest, "runtime", "dist", "server.js"));
+} else {
+  console.warn("⚠ server.bundle.js not found — run `npm run bundle` first");
+}
+
 const runtimeMcp = {
   mcpServers: {
     "claude-interrogate": {
