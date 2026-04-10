@@ -3,7 +3,7 @@ Updated: 2026-04-08
 
 Install this plugin from a Claude Code marketplace to get design-doc commands and the backing MCP server in one package.
 
-Commands:
+Claude Code commands (namespaced):
 
 - `/claude-interrogate:interrogate <concept> [docs-dir]`
 - `/claude-interrogate:interrogate-easy <concept> [docs-dir]`

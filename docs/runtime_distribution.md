@@ -53,7 +53,7 @@ In Codex, attach the runtime distribution repo's checked-in `.mcp.json` (or, fro
 
 The installable plugin payload is also self-contained: its `runtime-dist/plugin/.mcp.json` launches Node with a small inline loader that resolves the installed plugin root (via env vars or Codex's `~/.codex/plugins/cache/...` layout) and then imports `runtime/dist/server.js`, so the cached plugin copy does not depend on any sibling runtime directory.
 
-After install, users should get:
+After install in Codex, users should get:
 
 - `/interrogate`
 - `/interrogate-hard`
@@ -61,6 +61,8 @@ After install, users should get:
 - `/sync-docs`
 
 In Codex, these interactive slash commands are exposed from `commands/*.md` as bare slash names derived from the filenames (no `claude-interrogate:` namespace).
+
+In Claude Code, the same command files show up as namespaced commands (for example, `/claude-interrogate:interrogate`).
 
 ## Current Limitation
 

@@ -79,7 +79,7 @@ npm run prepare:runtime-dist
 
 That produces `runtime-dist/`, which is intended to be published as the separate runtime/install repository.
 
-After install, the plugin provides:
+After install in Claude Code, the plugin provides:
 
 - `/claude-interrogate:interrogate <concept> [docs-dir]`
 - `/claude-interrogate:interrogate-easy <concept> [docs-dir]`
