@@ -3,7 +3,9 @@
     "claude-interrogate": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js"
+        "--input-type=module",
+        "-e",
+        "import { access } from \"node:fs/promises\";\nimport path from \"node:path\";\nimport { pathToFileURL } from \"node:url\";\n\nconst base = path.resolve(\n  process.env.CLAUDE_PLUGIN_ROOT ??\n    process.env.CODEX_PLUGIN_ROOT ??\n    process.env.PLUGIN_ROOT ??\n    process.cwd()\n);\n\nconst candidates = [\n  path.join(base, \"runtime\", \"dist\", \"server.js\"),\n  path.join(base, \"plugins\", \"claude-interrogate\", \"runtime\", \"dist\", \"server.js\")\n];\n\nlet serverPath;\nfor (const candidate of candidates) {\n  try {\n    await access(candidate);\n    serverPath = candidate;\n    break;\n  } catch {\n    // continue\n  }\n}\n\nif (!serverPath) {\n  throw new Error(\n    \"Could not locate runtime/dist/server.js from base: \" +\n      base +\n      \" (checked: \" +\n      candidates.join(\", \" ) +\n      \")\"\n  );\n}\n\nawait import(pathToFileURL(serverPath).href);\n"
       ]
     }
   }

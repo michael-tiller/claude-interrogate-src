@@ -51,7 +51,7 @@ In the runtime repo:
 
 In Codex, attach the runtime repo's checked-in [.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json), which points at `./runtime/dist/server.js`.
 
-The installable plugin payload is also self-contained: its [`.mcp.json`](E:/Personal/claude-interrogate/runtime-dist/plugin/.mcp.json) points at `${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js`, so Claude's cached plugin copy does not depend on any sibling runtime directory.
+The installable plugin payload is also self-contained: its [`.mcp.json`](E:/Personal/claude-interrogate/runtime-dist/plugin/.mcp.json) launches Node with a tiny inline loader that resolves the plugin root (via env vars or cwd) and then imports `runtime/dist/server.js`, so the cached plugin copy does not depend on any sibling runtime directory.
 
 After install, users should get:
 

@@ -220,12 +220,32 @@ function assertPluginMcpConfig(config, label) {
     if (server.command !== "node") {
       failures.push('mcpServers["claude-interrogate"].command must be "node"');
     }
-    if (!Array.isArray(server.args) || server.args.length !== 1) {
-      failures.push('mcpServers["claude-interrogate"].args must contain exactly one runtime path');
-    } else if (server.args[0] !== "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js") {
+    if (!Array.isArray(server.args) || server.args.length !== 3) {
       failures.push(
-        'mcpServers["claude-interrogate"].args[0] must be "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js"',
+        'mcpServers["claude-interrogate"].args must contain ["--input-type=module", "-e", "<script>"]',
       );
+    } else {
+      if (server.args[0] !== "--input-type=module") {
+        failures.push('mcpServers["claude-interrogate"].args[0] must be "--input-type=module"');
+      }
+      if (server.args[1] !== "-e") {
+        failures.push('mcpServers["claude-interrogate"].args[1] must be "-e"');
+      }
+      if (typeof server.args[2] !== "string") {
+        failures.push(
+          'mcpServers["claude-interrogate"].args[2] must be a script that loads ./runtime/dist/server.js',
+        );
+      } else if (
+        !server.args[2].includes("CLAUDE_PLUGIN_ROOT") ||
+        !server.args[2].includes("CODEX_PLUGIN_ROOT") ||
+        !server.args[2].includes("runtime") ||
+        !server.args[2].includes("dist") ||
+        !server.args[2].includes("server.js")
+      ) {
+        failures.push(
+          'mcpServers["claude-interrogate"].args[2] must be a script that loads ./runtime/dist/server.js',
+        );
+      }
     }
   }
 
