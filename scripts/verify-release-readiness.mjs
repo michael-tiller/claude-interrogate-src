@@ -220,12 +220,44 @@ function assertPluginMcpConfig(config, label) {
     if (server.command !== "node") {
       failures.push('mcpServers["claude-interrogate"].command must be "node"');
     }
-    if (!Array.isArray(server.args) || server.args.length !== 1) {
-      failures.push('mcpServers["claude-interrogate"].args must contain exactly one runtime path');
-    } else if (server.args[0] !== "./runtime/dist/server.js") {
+
+    if (!Array.isArray(server.args) || server.args.length !== 3) {
       failures.push(
-        'mcpServers["claude-interrogate"].args[0] must be "./runtime/dist/server.js"',
+        'mcpServers["claude-interrogate"].args must contain ["--input-type=commonjs", "-e", "<script>"]',
       );
+    } else {
+      if (server.args[0] !== "--input-type=commonjs") {
+        failures.push(
+          'mcpServers["claude-interrogate"].args[0] must be "--input-type=commonjs"',
+        );
+      }
+
+      if (server.args[1] !== "-e") {
+        failures.push('mcpServers["claude-interrogate"].args[1] must be "-e"');
+      }
+
+      if (typeof server.args[2] !== "string") {
+        failures.push('mcpServers["claude-interrogate"].args[2] must be a script');
+      } else {
+        const requiredTokens = [
+          "claude-interrogate",
+          "runtime",
+          "dist",
+          "server.js",
+          ".codex",
+          "plugins",
+          "cache",
+          "claude-interrogate MCP server",
+        ];
+
+        for (const token of requiredTokens) {
+          if (!server.args[2].includes(token)) {
+            failures.push(
+              `mcpServers["claude-interrogate"].args[2] must include "${token}"`,
+            );
+          }
+        }
+      }
     }
   }
 
