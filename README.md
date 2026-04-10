@@ -204,8 +204,7 @@ What works now:
   - `/claude-interrogate:summarize <concept> [docs-dir]`
   - `/claude-interrogate:audit-docs [docs-dir]`
   - `/claude-interrogate:sync-docs [docs-dir]`
-
-  Codex TUI exposes these same command files as bare commands derived from filenames (e.g. `/interrogate`, `/audit-docs`).
+  - Codex TUI exposes these same command files as bare commands derived from filenames (e.g. `/interrogate`, `/audit-docs`).
 - The tool surface is:
   - `design_interview_start`
   - `design_summarize`
