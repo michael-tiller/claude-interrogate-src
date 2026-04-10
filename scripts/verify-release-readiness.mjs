@@ -232,17 +232,23 @@ function assertPluginMcpConfig(config, label) {
         failures.push(
           'mcpServers["claude-interrogate"].args[1] must be a script that loads ./runtime/dist/server.js',
         );
-      } else if (
-        !server.args[1].includes("CLAUDE_PLUGIN_ROOT") ||
-        !server.args[1].includes("CODEX_PLUGIN_ROOT") ||
-        !server.args[1].includes("PLUGIN_ROOT") ||
-        !server.args[1].includes("runtime") ||
-        !server.args[1].includes("dist") ||
-        !server.args[1].includes("server.js")
-      ) {
-        failures.push(
-          'mcpServers["claude-interrogate"].args[1] must be a script that loads ./runtime/dist/server.js',
+      } else {
+        const requiredTokens = [
+          "CLAUDE_PLUGIN_ROOT",
+          "CODEX_PLUGIN_ROOT",
+          "PLUGIN_ROOT",
+          "runtime",
+          "dist",
+          "server.js",
+        ];
+        const missingTokens = requiredTokens.filter(
+          (token) => !server.args[1].includes(token),
         );
+        if (missingTokens.length > 0) {
+          failures.push(
+            `mcpServers["claude-interrogate"].args[1] must be a script that loads ./runtime/dist/server.js (missing: ${missingTokens.join(", ")})`,
+          );
+        }
       }
     }
   }
