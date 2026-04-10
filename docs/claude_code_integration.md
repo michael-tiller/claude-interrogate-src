@@ -14,6 +14,8 @@ The MCP server entrypoint remains [src/server.ts](E:/Personal/claude-interrogate
 
 After `npm install` and `npm run build`, either client can attach the project MCP server from [.mcp.json](E:/Personal/claude-interrogate/.mcp.json).
 
+That same build also syncs the compiled server into [plugins/claude-interrogate/runtime/dist](E:/Personal/claude-interrogate/plugins/claude-interrogate/runtime/dist) so a locally installed Claude Code plugin copy can start its MCP server without depending on sibling directories outside the installed plugin root.
+
 That gives both clients:
 
 - MCP tools

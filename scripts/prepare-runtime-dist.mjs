@@ -43,11 +43,6 @@ await cp(pluginSource, claudePluginDest, { recursive: true });
 await cp(distSource, distDest, { recursive: true });
 await cp(licenseSource, licenseDest);
 
-const pluginMcpPath = path.join(claudePluginDest, ".mcp.json");
-const pluginMcp = JSON.parse(await readFile(pluginMcpPath, "utf8"));
-pluginMcp.mcpServers["claude-interrogate"].args = ["../runtime/dist/server.js"];
-await writeFile(pluginMcpPath, JSON.stringify(pluginMcp, null, 2) + "\n", "utf8");
-
 const runtimeMcp = {
   mcpServers: {
     "claude-interrogate": {
@@ -108,6 +103,7 @@ Contents:
 - \`.claude-plugin/marketplace.json\` Claude Code marketplace metadata
 - \`.mcp.json\` Codex/Claude-compatible MCP attachment config for the runtime repo
 - \`plugin/\` installable Claude Code plugin payload
+- \`plugin/runtime/dist/\` self-contained MCP runtime used by the installed plugin
 - \`runtime/dist/\` built MCP server runtime
 
 Current command surface:

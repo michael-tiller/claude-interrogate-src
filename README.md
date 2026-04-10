@@ -115,7 +115,7 @@ Project MCP setup:
 /mcp
 ```
 
-This repository includes both a project-scoped [.mcp.json](E:/Personal/claude-interrogate/.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](E:/Personal/claude-interrogate/plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config.
+This repository includes both a project-scoped [.mcp.json](E:/Personal/claude-interrogate/.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](E:/Personal/claude-interrogate/plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config. The build now syncs the compiled server into `plugins/claude-interrogate/runtime/dist/` so installed plugin copies remain self-contained.
 
 Run the CLI:
 

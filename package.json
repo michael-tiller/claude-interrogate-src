@@ -13,9 +13,10 @@
     "sample-docs"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ./scripts/sync-plugin-runtime.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "check:release": "node ./scripts/verify-release-readiness.mjs",
+    "sync:plugin-runtime": "node ./scripts/sync-plugin-runtime.mjs",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",

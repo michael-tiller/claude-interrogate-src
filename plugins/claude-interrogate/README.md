@@ -27,8 +27,8 @@ Commands:
 
 Requirements:
 
-- The repository must include the built server at `dist/server.js`.
-- If you install from source, run `npm install` and `npm run build` once before using the MCP-backed commands.
+- The plugin payload must include the built server at `runtime/dist/server.js`.
+- If you install from source, run `npm install` and `npm run build` once before using the MCP-backed commands. The build now syncs the runtime into the plugin payload automatically.
 
 For runtime distribution, publish the prepared payload from `runtime-dist/` instead of this source repo directly.
 

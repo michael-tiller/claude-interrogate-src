@@ -18,6 +18,7 @@ That creates:
 - [runtime-dist/.claude-plugin/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/.claude-plugin/marketplace.json)
 - [runtime-dist/.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json)
 - [runtime-dist/plugin](E:/Personal/claude-interrogate/runtime-dist/plugin)
+- [runtime-dist/plugin/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/plugin/runtime/dist)
 - [runtime-dist/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/runtime/dist)
 
 If `distribution-repo/` is a checked-out copy of the public runtime repo, you can also refresh it in place without deleting its `.git/` metadata:
@@ -49,6 +50,8 @@ In the runtime repo:
 ```
 
 In Codex, attach the runtime repo's checked-in [.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json), which points at `./runtime/dist/server.js`.
+
+The installable plugin payload is also self-contained: its [`.mcp.json`](E:/Personal/claude-interrogate/runtime-dist/plugin/.mcp.json) points at `${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js`, so Claude's cached plugin copy does not depend on any sibling runtime directory.
 
 After install, users should get:
 

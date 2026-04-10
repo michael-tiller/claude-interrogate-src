@@ -23,6 +23,23 @@ const runtimeRepoPluginManifestPath = path.join(
   ".claude-plugin",
   "plugin.json",
 );
+const sourcePluginMcpConfigPath = path.join(root, "plugins", "claude-interrogate", ".mcp.json");
+const runtimePluginMcpConfigPath = path.join(runtimeRoot, "plugin", ".mcp.json");
+const sourcePluginRuntimeServerPath = path.join(
+  root,
+  "plugins",
+  "claude-interrogate",
+  "runtime",
+  "dist",
+  "server.js",
+);
+const runtimePluginRuntimeServerPath = path.join(
+  runtimeRoot,
+  "plugin",
+  "runtime",
+  "dist",
+  "server.js",
+);
 
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
@@ -43,16 +60,36 @@ await assertExists(
   runtimeRepoPluginManifestPath,
   "runtime-dist/.claude-plugin/plugin.json is missing.",
 );
+await assertExists(
+  sourcePluginMcpConfigPath,
+  "plugins/claude-interrogate/.mcp.json is missing.",
+);
+await assertExists(
+  runtimePluginMcpConfigPath,
+  "runtime-dist/plugin/.mcp.json is missing.",
+);
+await assertExists(
+  sourcePluginRuntimeServerPath,
+  "plugins/claude-interrogate/runtime/dist/server.js is missing. Run `npm run build` before release checks.",
+);
+await assertExists(
+  runtimePluginRuntimeServerPath,
+  "runtime-dist/plugin/runtime/dist/server.js is missing. Rebuild the runtime payload before running release checks.",
+);
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const runtimeManifest = await readManifest(runtimePluginManifestPath);
 const runtimeMarketplace = await readManifest(runtimeMarketplacePath);
 const runtimeMcpConfig = await readManifest(runtimeMcpConfigPath);
+const sourcePluginMcpConfig = await readManifest(sourcePluginMcpConfigPath);
+const runtimePluginMcpConfig = await readManifest(runtimePluginMcpConfigPath);
 
 assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`);
 assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`);
 assertMarketplaceMetadata(runtimeMarketplace, runtimeMarketplacePath);
 assertMcpConfig(runtimeMcpConfig, runtimeMcpConfigPath);
+assertPluginMcpConfig(sourcePluginMcpConfig, sourcePluginMcpConfigPath);
+assertPluginMcpConfig(runtimePluginMcpConfig, runtimePluginMcpConfigPath);
 
 console.log("Release readiness checks passed.");
 
@@ -170,5 +207,29 @@ function assertMcpConfig(config, label) {
 
   if (failures.length > 0) {
     throw new Error(`${label} failed MCP config checks:\n- ${failures.join("\n- ")}`);
+  }
+}
+
+function assertPluginMcpConfig(config, label) {
+  const failures = [];
+
+  const server = config?.mcpServers?.["claude-interrogate"];
+  if (!server) {
+    failures.push('mcpServers["claude-interrogate"] must exist');
+  } else {
+    if (server.command !== "node") {
+      failures.push('mcpServers["claude-interrogate"].command must be "node"');
+    }
+    if (!Array.isArray(server.args) || server.args.length !== 1) {
+      failures.push('mcpServers["claude-interrogate"].args must contain exactly one runtime path');
+    } else if (server.args[0] !== "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js") {
+      failures.push(
+        'mcpServers["claude-interrogate"].args[0] must be "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js"',
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`${label} failed plugin MCP config checks:\n- ${failures.join("\n- ")}`);
   }
 }
