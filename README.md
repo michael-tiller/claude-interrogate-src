@@ -102,7 +102,7 @@ After install in Claude Code, the plugin provides:
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 
-In Codex TUI, interactive plugin commands are exposed from `commands/*.md` as bare slash names derived from the filenames (no `claude-interrogate:` namespace). For example, `/interrogate test-concept`.
+Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace). See `plugins/claude-interrogate/README.md` for details.
 
 Source-repo setup:
 

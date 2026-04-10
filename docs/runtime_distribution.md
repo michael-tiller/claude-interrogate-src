@@ -60,11 +60,7 @@ After install in Codex, users should at least get commands like:
 - `/audit-docs`
 - `/sync-docs`
 
-In Codex, these interactive slash commands are exposed from `commands/*.md` as bare slash names derived from the filenames (no `claude-interrogate:` namespace).
-
-In Claude Code, the same command files show up as namespaced commands (for example, `/claude-interrogate:interrogate`).
-
-For the full command list, see `plugins/claude-interrogate/README.md`.
+For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
 ## Current Limitation
 
