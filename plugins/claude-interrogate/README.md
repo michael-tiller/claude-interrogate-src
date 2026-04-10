@@ -25,6 +25,8 @@ Commands:
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 
+Codex note: when installed as a Codex plugin, interactive slash commands come from `commands/*.md` filenames as bare slash names (no `claude-interrogate:` namespace). For example, use `/interrogate test-concept`, not `/claude-interrogate:interrogate test-concept`.
+
 Requirements:
 
 - The plugin payload must include the built server at `runtime/dist/server.js`.

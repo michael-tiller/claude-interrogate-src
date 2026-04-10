@@ -5,7 +5,7 @@ A Socratic design-document interviewer for Claude Code, shipped as an MCP server
 
 The interview is mildly adversarial by design: it asks for rejected alternatives, failure evidence, and the cost of leaving a decision vague. `--challenge` raises that tone further.
 
-Current release history lives in [CHANGELOG.md](E:/Personal/claude-interrogate/CHANGELOG.md).
+Current release history lives in [CHANGELOG.md](CHANGELOG.md).
 
 ## What It Does
 
@@ -69,7 +69,7 @@ Codex manual MCP setup from this repo:
 }
 ```
 
-This repository already includes that configuration in [`.mcp.json`](E:/Personal/claude-interrogate/.mcp.json). Build the repo, then attach the workspace MCP server from Codex.
+This repository already includes that configuration in [`.mcp.json`](.mcp.json). Build the repo, then attach the workspace MCP server from Codex.
 
 For a clean public/runtime repo split, generate the distribution payload with:
 
@@ -102,6 +102,8 @@ After install, the plugin provides:
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 
+In Codex TUI, interactive plugin commands are exposed from `commands/*.md` as bare slash names derived from the filenames (no `claude-interrogate:` namespace). For example, `/interrogate test-concept`.
+
 Source-repo setup:
 
 ```bash
@@ -115,7 +117,7 @@ Project MCP setup:
 /mcp
 ```
 
-This repository includes both a project-scoped [.mcp.json](E:/Personal/claude-interrogate/.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](E:/Personal/claude-interrogate/plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config. The build now syncs the compiled server into `plugins/claude-interrogate/runtime/dist/` so installed plugin copies remain self-contained.
+This repository includes both a project-scoped [.mcp.json](.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config. The build now syncs the compiled server into `plugins/claude-interrogate/runtime/dist/` so installed plugin copies remain self-contained.
 
 Run the CLI:
 
@@ -202,6 +204,8 @@ What works now:
   - `/claude-interrogate:summarize <concept> [docs-dir]`
   - `/claude-interrogate:audit-docs [docs-dir]`
   - `/claude-interrogate:sync-docs [docs-dir]`
+
+  Codex TUI exposes these same command files as bare commands derived from filenames (e.g. `/interrogate`, `/audit-docs`).
 - The tool surface is:
   - `design_interview_start`
   - `design_summarize`

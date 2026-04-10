@@ -49,16 +49,18 @@ In the runtime repo:
 /plugin install claude-interrogate
 ```
 
-In Codex, attach the runtime repo's checked-in `runtime-dist/.mcp.json`, which points at `./runtime/dist/server.js`.
+In Codex, attach the runtime distribution repo's checked-in `.mcp.json` (or, from this source repo, `runtime-dist/.mcp.json`). It points at `./runtime/dist/server.js`.
 
 The installable plugin payload is also self-contained: its `runtime-dist/plugin/.mcp.json` launches Node with a small inline loader that resolves the installed plugin root (via env vars or Codex's `~/.codex/plugins/cache/...` layout) and then imports `runtime/dist/server.js`, so the cached plugin copy does not depend on any sibling runtime directory.
 
 After install, users should get:
 
-- `/claude-interrogate:interrogate`
-- `/claude-interrogate:interrogate-hard`
-- `/claude-interrogate:audit-docs`
-- `/claude-interrogate:sync-docs`
+- `/interrogate`
+- `/interrogate-hard`
+- `/audit-docs`
+- `/sync-docs`
+
+In Codex, these interactive slash commands are exposed from `commands/*.md` as bare slash names derived from the filenames (no `claude-interrogate:` namespace).
 
 ## Current Limitation
 
