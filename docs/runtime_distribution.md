@@ -1,7 +1,7 @@
 # Runtime Distribution
 Updated: 2026-04-08
 
-This repository is the internal source repo. It now also generates a publishable runtime payload for a separate installation repo.
+This repository is the internal source repo. It now also generates a publishable runtime payload for a separate installation repo, with a documented Claude Code plugin path and a documented Codex MCP path.
 
 ## Build The Runtime Payload
 
@@ -16,6 +16,7 @@ That creates:
 
 - [runtime-dist/README.md](E:/Personal/claude-interrogate/runtime-dist/README.md)
 - [runtime-dist/.claude-plugin/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/.claude-plugin/marketplace.json)
+- [runtime-dist/.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json)
 - [runtime-dist/plugin](E:/Personal/claude-interrogate/runtime-dist/plugin)
 - [runtime-dist/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/runtime/dist)
 
@@ -46,6 +47,8 @@ In the runtime repo:
 /plugin marketplace add michael-tiller/claude-interrogate
 /plugin install claude-interrogate
 ```
+
+In Codex, attach the runtime repo's checked-in [.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json), which points at `./runtime/dist/server.js`.
 
 After install, users should get:
 

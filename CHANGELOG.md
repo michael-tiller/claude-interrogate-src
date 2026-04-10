@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.2] - 2026-04-09
+
+### Added
+
+- New `redress` flow for bringing an existing doc up to current local house style without reopening its core decisions.
+- New report-oriented flows for `expose`, `glossary`, `refresh`, and `reveal`, with matching Claude command and plugin surfaces.
+- Post-edit document normalization that can infer semantic version bumps, ensure managed sections exist, and append version-history entries automatically.
+- Coverage for post-edit normalization behavior, including patch, minor, and major document-version bump cases.
+- Release-readiness checks for the generated Codex MCP runtime configuration in the runtime distribution.
+
+### Changed
+
+- Project docs now document a manual Codex MCP attachment path instead of an unverified plugin install flow.
+- Runtime distribution prep now emits a checked-in `.mcp.json` for Codex alongside the existing Claude Code plugin payload.
+- Interview, conversion, and maintenance prompt flows now consistently support explicit `cancel` handling for abandoned write tasks.
+- Cross-reference sync and doc generation now route file updates through the same metadata and version-history normalization path.
+
 ## [0.1.1] - 2026-04-08
 
 ### Added

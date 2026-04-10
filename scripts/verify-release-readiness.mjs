@@ -2,8 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
-const distributionRoot = path.join(root, "distribution-repo");
-const distributionGitDir = path.join(distributionRoot, ".git");
+const runtimeRoot = path.join(root, "runtime-dist");
 const sourcePluginManifestPath = path.join(
   root,
   "plugins",
@@ -11,15 +10,16 @@ const sourcePluginManifestPath = path.join(
   ".codex-plugin",
   "plugin.json",
 );
-const distributionPluginManifestPath = path.join(
-  distributionRoot,
+const runtimePluginManifestPath = path.join(
+  runtimeRoot,
   "plugin",
   ".codex-plugin",
   "plugin.json",
 );
-const distributionMarketplacePath = path.join(distributionRoot, ".claude-plugin", "marketplace.json");
-const distributionRepoPluginManifestPath = path.join(
-  distributionRoot,
+const runtimeMarketplacePath = path.join(runtimeRoot, ".claude-plugin", "marketplace.json");
+const runtimeMcpConfigPath = path.join(runtimeRoot, ".mcp.json");
+const runtimeRepoPluginManifestPath = path.join(
+  runtimeRoot,
   ".claude-plugin",
   "plugin.json",
 );
@@ -27,24 +27,32 @@ const distributionRepoPluginManifestPath = path.join(
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
 
-await assertExists(distributionRoot, "distribution-repo/ is missing. Clone or restore the distro repo checkout.");
-await assertExists(distributionGitDir, "distribution-repo/.git is missing. The distro repo must remain a real checkout.");
 await assertExists(
-  distributionMarketplacePath,
-  "distribution-repo/.claude-plugin/marketplace.json is missing. Claude Code marketplace add expects the public marketplace manifest there.",
+  runtimeRoot,
+  "runtime-dist/ is missing. Run `npm run prepare:runtime-dist` before `npm run check:release`.",
 );
 await assertExists(
-  distributionRepoPluginManifestPath,
-  "distribution-repo/.claude-plugin/plugin.json is missing.",
+  runtimeMarketplacePath,
+  "runtime-dist/.claude-plugin/marketplace.json is missing. Rebuild the runtime payload before running release checks.",
+);
+await assertExists(
+  runtimeMcpConfigPath,
+  "runtime-dist/.mcp.json is missing. Codex manual MCP attachment expects the runtime config there.",
+);
+await assertExists(
+  runtimeRepoPluginManifestPath,
+  "runtime-dist/.claude-plugin/plugin.json is missing.",
 );
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
-const distributionManifest = await readManifest(distributionPluginManifestPath);
-const distributionMarketplace = await readManifest(distributionMarketplacePath);
+const runtimeManifest = await readManifest(runtimePluginManifestPath);
+const runtimeMarketplace = await readManifest(runtimeMarketplacePath);
+const runtimeMcpConfig = await readManifest(runtimeMcpConfigPath);
 
 assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`);
-assertPublicMetadata(distributionManifest, `Distribution plugin manifest ${distributionPluginManifestPath}`);
-assertMarketplaceMetadata(distributionMarketplace, distributionMarketplacePath);
+assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`);
+assertMarketplaceMetadata(runtimeMarketplace, runtimeMarketplacePath);
+assertMcpConfig(runtimeMcpConfig, runtimeMcpConfigPath);
 
 console.log("Release readiness checks passed.");
 
@@ -140,5 +148,27 @@ function assertMarketplaceMetadata(marketplace, label) {
 
   if (failures.length > 0) {
     throw new Error(`${label} failed marketplace checks:\n- ${failures.join("\n- ")}`);
+  }
+}
+
+function assertMcpConfig(config, label) {
+  const failures = [];
+
+  const server = config?.mcpServers?.["claude-interrogate"];
+  if (!server) {
+    failures.push('mcpServers["claude-interrogate"] must exist');
+  } else {
+    if (server.command !== "node") {
+      failures.push('mcpServers["claude-interrogate"].command must be "node"');
+    }
+    if (!Array.isArray(server.args) || server.args.length !== 1) {
+      failures.push('mcpServers["claude-interrogate"].args must contain exactly one runtime path');
+    } else if (server.args[0] !== "./runtime/dist/server.js") {
+      failures.push('mcpServers["claude-interrogate"].args[0] must be "./runtime/dist/server.js"');
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`${label} failed MCP config checks:\n- ${failures.join("\n- ")}`);
   }
 }

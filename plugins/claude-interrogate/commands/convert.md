@@ -10,5 +10,8 @@ Rules:
 
 Behavior:
 - First clarify the target form if it is not obvious.
+- If the user starts a different file task before this one is resolved, cancel this target-file task immediately, state that it was abandoned without writing, and continue only with the new task.
 - Present what will be kept, reframed, dropped, and written.
+- Ask the user to `confirm`, `modify`, `deny`, or `cancel` before any write.
+- If the user cancels, abandon the current target-file task, ask no further conversion questions, and make clear that nothing was written.
 - Treat canonical-spec conversion as a promotion flow, not a blind overwrite.

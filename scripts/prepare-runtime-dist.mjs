@@ -7,9 +7,10 @@ const distributionRoot = path.join(root, "distribution-repo");
 const licenseSource = path.join(root, "LICENSE.md");
 const licenseDest = path.join(runtimeRoot, "LICENSE.md");
 const pluginSource = path.join(root, "plugins", "claude-interrogate");
-const pluginDest = path.join(runtimeRoot, "plugin");
+const claudePluginDest = path.join(runtimeRoot, "plugin");
 const distSource = path.join(root, "dist");
 const distDest = path.join(runtimeRoot, "runtime", "dist");
+const runtimeMcpDest = path.join(runtimeRoot, ".mcp.json");
 const repoPluginManifestDest = path.join(runtimeRoot, ".claude-plugin", "plugin.json");
 const marketplaceDest = path.join(runtimeRoot, ".claude-plugin", "marketplace.json");
 const syncDistributionRepo = process.argv.includes("--sync-distribution-repo");
@@ -38,14 +39,24 @@ await rm(runtimeRoot, { recursive: true, force: true });
 await mkdir(path.dirname(marketplaceDest), { recursive: true });
 await mkdir(path.dirname(distDest), { recursive: true });
 
-await cp(pluginSource, pluginDest, { recursive: true });
+await cp(pluginSource, claudePluginDest, { recursive: true });
 await cp(distSource, distDest, { recursive: true });
 await cp(licenseSource, licenseDest);
 
-const pluginMcpPath = path.join(pluginDest, ".mcp.json");
+const pluginMcpPath = path.join(claudePluginDest, ".mcp.json");
 const pluginMcp = JSON.parse(await readFile(pluginMcpPath, "utf8"));
 pluginMcp.mcpServers["claude-interrogate"].args = ["../runtime/dist/server.js"];
 await writeFile(pluginMcpPath, JSON.stringify(pluginMcp, null, 2) + "\n", "utf8");
+
+const runtimeMcp = {
+  mcpServers: {
+    "claude-interrogate": {
+      command: "node",
+      args: ["./runtime/dist/server.js"],
+    },
+  },
+};
+await writeFile(runtimeMcpDest, JSON.stringify(runtimeMcp, null, 2) + "\n", "utf8");
 
 const pluginManifest = JSON.parse(
   await readFile(path.join(pluginSource, ".codex-plugin", "plugin.json"), "utf8"),
@@ -90,12 +101,13 @@ await writeFile(repoPluginManifestDest, JSON.stringify(repoPluginManifest, null,
 const runtimeReadme = `# Claude Interrogate Runtime
 Updated: 2026-04-08
 
-This directory is the distribution payload for the installable Claude Code plugin.
+This directory is the distribution payload for the installable Claude Code plugin and the Codex MCP runtime.
 
 Contents:
 
 - \`.claude-plugin/marketplace.json\` Claude Code marketplace metadata
-- \`plugin/\` installable plugin payload
+- \`.mcp.json\` Codex/Claude-compatible MCP attachment config for the runtime repo
+- \`plugin/\` installable Claude Code plugin payload
 - \`runtime/dist/\` built MCP server runtime
 
 Current command surface:
@@ -119,6 +131,19 @@ Install from the plugin marketplace inside Claude Code:
 \`\`\`text
 /plugin marketplace add michael-tiller/claude-interrogate
 /plugin install claude-interrogate
+\`\`\`
+
+In Codex, attach the runtime repo's checked-in \`.mcp.json\`, which runs:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "claude-interrogate": {
+      "command": "node",
+      "args": ["./runtime/dist/server.js"]
+    }
+  }
+}
 \`\`\`
 
 Repository:

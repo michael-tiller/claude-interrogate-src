@@ -1,9 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  DEFAULT_DOC_VERSION,
   detectHouseStyle,
-  ensureDocumentMetadata,
   extractBullets,
   extractOpenQuestions,
   getSectionBody,
@@ -11,6 +9,7 @@ import {
   loadDocFile,
   loadDocs,
   moveSectionBefore,
+  postEditNormalizeDocument,
   removeSection,
   replaceOrAppendSection
 } from "./docs.js";
@@ -147,7 +146,10 @@ export async function designCrossRefSync(docsDir: string, styleTemplatePath?: st
     );
 
     nextContent = moveSectionBefore(nextContent, "Resolved Decisions", style.openQuestionsHeading);
-    nextContent = ensureDocumentMetadata(nextContent, TODAY, DEFAULT_DOC_VERSION);
+    nextContent = postEditNormalizeDocument(doc.content, nextContent, TODAY, {
+      crossRefHeading: style.crossRefHeading,
+      openQuestionsHeading: style.openQuestionsHeading
+    }).content;
 
     if (nextContent !== doc.content) {
       await writeFile(doc.path, nextContent, "utf8");

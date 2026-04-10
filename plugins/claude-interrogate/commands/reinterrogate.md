@@ -24,6 +24,8 @@ The user invoked this command with: $ARGUMENTS
 - Summarize what the target doc currently says and what sibling docs have settled since it was written.
 - Keep the full question queue private.
 - Ask one question at a time, focusing on stale assumptions, contradictions, and missing decisions.
-- Present findings and ask the user to `confirm`, `modify`, or `deny` before writing anything.
+- If the user starts a different file task before this one is resolved, cancel this target-file task immediately, state that it was abandoned without writing, and continue only with the new task.
+- Present findings and ask the user to `confirm`, `modify`, `deny`, or `cancel` before writing anything.
 - Only write after explicit confirmation.
 - If the user denies, stop without writing anything.
+- If the user cancels, abandon the current target-file task, ask no further reinterrogation questions, and make clear that nothing was written.

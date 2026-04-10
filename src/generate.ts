@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_DOC_VERSION, detectHouseStyle, ensureDocumentMetadata, loadDocFile, loadDocs } from "./docs.js";
+import { DEFAULT_DOC_VERSION, detectHouseStyle, loadDocFile, loadDocs, postEditNormalizeDocument } from "./docs.js";
 import { renderDefaultGoldenTemplate } from "./default-template.js";
 import { GenerateDocInput } from "./types.js";
 
@@ -32,13 +32,24 @@ export async function designDocGenerate(
     }))
   );
 
+  const normalized = postEditNormalizeDocument(undefined, content, TODAY, {
+    crossRefHeading: style.crossRefHeading,
+    openQuestionsHeading: style.openQuestionsHeading
+  });
+
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, ensureDocumentMetadata(content, TODAY, DEFAULT_DOC_VERSION), "utf8");
-  await syncSiblingCrossReferences(resolvedOutputPath, input.concept, siblingDocs, style.crossRefHeading);
+  await writeFile(outputPath, normalized.content, "utf8");
+  await syncSiblingCrossReferences(
+    resolvedOutputPath,
+    input.concept,
+    siblingDocs,
+    style.crossRefHeading,
+    style.openQuestionsHeading
+  );
 
   return {
     outputPath: resolvedOutputPath,
-    content: ensureDocumentMetadata(content, TODAY, DEFAULT_DOC_VERSION)
+    content: normalized.content
   };
 }
 
@@ -143,7 +154,8 @@ async function syncSiblingCrossReferences(
   outputPath: string,
   concept: string,
   siblingDocs: Array<{ path: string; title: string }>,
-  crossRefHeading: string
+  crossRefHeading: string,
+  openQuestionsHeading: string
 ): Promise<void> {
   const newDocTitle = toTitle(concept);
 
@@ -158,7 +170,11 @@ async function syncSiblingCrossReferences(
       }
 
       const updated = upsertCrossReference(content, crossRefHeading, linkLine);
-      await writeFile(doc.path, updated, "utf8");
+      const normalized = postEditNormalizeDocument(content, updated, TODAY, {
+        crossRefHeading,
+        openQuestionsHeading
+      });
+      await writeFile(doc.path, normalized.content, "utf8");
     })
   );
 }

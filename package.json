@@ -1,7 +1,7 @@
 {
   "name": "claude-interrogate-mcp",
-  "version": "0.1.1",
-  "description": "A Socratic design-document interviewer for Claude Code, shipped as an MCP server.",
+  "version": "0.1.2",
+  "description": "A Socratic design-document interviewer for Claude Code, shipped as an MCP server and attachable from Codex via MCP.",
   "type": "module",
   "bin": {
     "interrogate": "./dist/cli.js",
@@ -19,15 +19,16 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "verify": "npm run check && npm run test:run && npm run check:release",
+    "verify": "npm run check && npm run test:run",
     "start": "node ./dist/server.js",
     "cli": "node ./dist/cli.js",
-    "prepare:runtime-dist": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs",
-    "prepare:distribution-repo": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs --sync-distribution-repo"
+    "prepare:runtime-dist": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs && npm run check:release",
+    "prepare:distribution-repo": "npm run verify && npm run build && node ./scripts/prepare-runtime-dist.mjs --sync-distribution-repo && npm run check:release"
   },
   "keywords": [
     "mcp",
     "claude",
+    "codex",
     "design-docs",
     "typescript"
   ],

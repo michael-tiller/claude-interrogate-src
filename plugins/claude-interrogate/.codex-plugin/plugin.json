@@ -1,7 +1,7 @@
 {
   "name": "claude-interrogate",
-  "version": "0.1.1",
-  "description": "Design-doc interrogation plugin for Claude Code with MCP-backed interview, audit, and sync flows.",
+  "version": "0.1.2",
+  "description": "Design-doc interrogation plugin for Claude Code, with an MCP server that can also be attached from Codex.",
   "author": {
     "name": "Michael Tiller",
     "url": "https://github.com/michael-tiller/claude-interrogate"
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Claude Interrogate",
     "shortDescription": "Interrogate, audit, and sync design docs",
-    "longDescription": "Design-doc tooling for Claude Code. It runs adversarial design interviews, generates house-style specs, audits doc sets for contradictions and stale questions, and syncs cross-references across related documents.",
+    "longDescription": "Design-doc tooling centered on Claude Code, with an MCP server that can also be attached from Codex. It runs adversarial design interviews, generates house-style specs, audits doc sets for contradictions and stale questions, and syncs cross-references across related documents.",
     "developerName": "Michael Tiller",
     "category": "Coding",
     "capabilities": [

@@ -10,12 +10,17 @@ Commands:
 - `/claude-interrogate:interrogate-fast <concept> [docs-dir]`
 - `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
 - `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
+- `/claude-interrogate:redress <doc-path> [docs-dir]`
 - `/claude-interrogate:distill <concept> [docs-dir]`
 - `/claude-interrogate:distill-hard <concept> [docs-dir]`
 - `/claude-interrogate:extricate <concept> [docs-dir]`
 - `/claude-interrogate:trace <concept> [docs-dir]`
 - `/claude-interrogate:trace --index [docs-dir]`
 - `/claude-interrogate:convert <source> [docs-dir]`
+- `/claude-interrogate:expose [docs-dir]`
+- `/claude-interrogate:glossary [docs-dir]`
+- `/claude-interrogate:refresh [docs-dir] [topic]`
+- `/claude-interrogate:reveal [docs-dir] [topic]`
 - `/claude-interrogate:summarize <concept> [docs-dir]`
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
@@ -26,3 +31,5 @@ Requirements:
 - If you install from source, run `npm install` and `npm run build` once before using the MCP-backed commands.
 
 For runtime distribution, publish the prepared payload from `runtime-dist/` instead of this source repo directly.
+
+For Codex, use the repository or runtime `.mcp.json` to attach the MCP server manually rather than a plugin marketplace flow.

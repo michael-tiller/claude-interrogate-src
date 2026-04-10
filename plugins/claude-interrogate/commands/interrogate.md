@@ -24,8 +24,10 @@ The user invoked this command with: $ARGUMENTS
 - Summarize what the existing docs already decide before asking anything new.
 - Keep the full question queue private.
 - Ask one question at a time in dependency order.
+- If the user starts a different file task before this one is resolved, cancel this task immediately, state that it was abandoned without writing, and continue only with the new task.
 - Push on weak, vague, or incomplete answers.
-- Present findings and ask the user to `confirm`, `modify`, or `deny` before writing anything.
+- Present findings and ask the user to `confirm`, `modify`, `deny`, or `cancel` before writing anything.
 - Only write after explicit confirmation.
 - If the user denies, stop without writing anything.
+- If the user cancels, abandon the current file task, ask no further task questions, and make clear that nothing was written.
 - Never set `challenge=true` in this command path.

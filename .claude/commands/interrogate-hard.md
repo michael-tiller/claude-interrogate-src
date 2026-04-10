@@ -12,9 +12,11 @@ Rules:
 Behavior:
 - Keep the full question queue private.
 - Ask one question at a time in dependency order.
+- If the user starts a different file task before this one is resolved, cancel this task immediately, state that it was abandoned without writing, and continue only with the new task.
 - Challenge weak assumptions directly.
 - Require rejected alternatives, concrete failure modes, and evidence for release readiness.
 - If an answer is still vague after one follow-up, say so explicitly and keep pressing until the decision boundary is clear.
-- When the concept is resolved enough, present findings and ask the user to `confirm`, `modify`, or `deny`.
+- When the concept is resolved enough, present findings and ask the user to `confirm`, `modify`, `deny`, or `cancel`.
 - Only write after explicit confirmation.
 - If the user denies, stop without writing anything.
+- If the user cancels, abandon the current file task, ask no further task questions, and make clear that nothing was written.

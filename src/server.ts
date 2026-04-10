@@ -343,6 +343,121 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => ({
           required: false
         }
       ]
+    },
+    {
+      name: "glossary",
+      description: "Build a glossary of common domain terms used across the docs set.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to read for domain terms and definitions",
+          required: true
+        },
+        {
+          name: "output_path",
+          description: "Optional output path for the glossary file; default is <docs-dir>/glossary.md",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "expose",
+      description: "Expose gaps, undefined seams, and underspecified decisions across the docs set.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to inspect for gaps and unresolved seams",
+          required: true
+        },
+        {
+          name: "output_path",
+          description: "Optional output path for the gaps report; default is <docs-dir>/expose.md",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "reveal",
+      description: "Reveal remaining open questions across the docs set or for one specific topic.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to inspect for unresolved questions",
+          required: true
+        },
+        {
+          name: "topic",
+          description: "Optional topic or concept to narrow the reveal report",
+          required: false
+        },
+        {
+          name: "output_path",
+          description: "Optional output path for the open-questions report; default is <docs-dir>/reveal.md or <topic>-reveal.md",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "refresh",
+      description: "Find potentially out-of-date elements and force an interview-driven update pass.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to inspect for stale or outdated design elements",
+          required: true
+        },
+        {
+          name: "topic",
+          description: "Optional topic or concept to narrow the refresh pass",
+          required: false
+        },
+        {
+          name: "output_path",
+          description: "Optional output path for the refresh report; default is <docs-dir>/refresh.md or <topic>-refresh.md",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "redress",
+      description: "Bring an existing file up to contemporary house style without silently changing its intent.",
+      arguments: [
+        {
+          name: "doc_path",
+          description: "Existing document path to redress",
+          required: true
+        },
+        {
+          name: "docs_dir",
+          description: "Docs directory to use as the current house-style reference",
+          required: true
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
     }
   ]
 }));
@@ -512,6 +627,93 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           }
         ]
       };
+    case "glossary":
+      return {
+        description: "Compile a glossary of common design-space terms and write it after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: glossaryPrompt(
+                String(args?.docs_dir ?? ""),
+                args?.output_path ? String(args.output_path) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
+    case "expose":
+      return {
+        description: "Expose missing decisions, undefined seams, and risky ambiguities, then write a report after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: exposePrompt(
+                String(args?.docs_dir ?? ""),
+                args?.output_path ? String(args.output_path) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
+    case "reveal":
+      return {
+        description: "Reveal remaining open questions holistically or for a specific topic, then write a report after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: revealPrompt(
+                String(args?.docs_dir ?? ""),
+                args?.topic ? String(args.topic) : undefined,
+                args?.output_path ? String(args.output_path) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
+    case "refresh":
+      return {
+        description: "Find stale elements, force a reinterrogation plan, and write the refresh report after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: refreshPrompt(
+                String(args?.docs_dir ?? ""),
+                args?.topic ? String(args.topic) : undefined,
+                args?.output_path ? String(args.output_path) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
+    case "redress":
+      return {
+        description: "Bring one file up to the current house style and write it after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: redressPrompt(
+                String(args?.doc_path ?? ""),
+                String(args?.docs_dir ?? ""),
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
     default:
       throw new Error(`Unknown prompt: ${name}`);
   }
@@ -626,17 +828,19 @@ function interrogatePrompt(
     `Use depth mode: ${depthMode}.`,
     "",
     "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old task immediately, state that it was abandoned without writing, and continue only with the new task.",
     "1. Call `design_interview_start` with the provided concept, docs_dir, challenge flag, and optional style template.",
     "2. Summarize what the docs already decide before asking anything new.",
     "3. Keep the returned question set as a private working queue. Do not dump the whole queue to the user.",
     "4. Ask exactly one interview question at a time, in dependency order. It is fine to include explicit options or ranked forks inside that single question.",
     "5. After each user answer, update your private notes and decide whether to ask a follow-up on that same topic or advance to the next topic.",
     "6. If an answer is vague, short, or hand-wavy, ask a follow-up. Push on trade-offs and rejected alternatives.",
-    "7. When the concept is resolved enough to write, do not write yet. First present a concise findings summary and ask the user to choose: confirm, modify, or deny.",
+    "7. When the concept is resolved enough to write, do not write yet. First present a concise findings summary and ask the user to choose: confirm, modify, deny, or cancel.",
     "8. If the user confirms, call `design_doc_generate` and write `<concept>.md` inside the docs directory unless the user chooses a different output path.",
     "9. If the user asks to modify, keep the interview open, update the findings, and ask for confirmation again before writing.",
     "10. If the user denies, end the interrogation without calling `design_doc_generate` and make clear that nothing was written.",
-    "11. Mention any contradictions that imply sibling docs should change in the same review.",
+    "11. If the user cancels, abandon the current file task entirely, ask no further task questions, and make clear that nothing was written and the task was abandoned.",
+    "12. Mention any contradictions that imply sibling docs should change in the same review.",
     "",
     "Do not treat this as brainstorming fluff. Design documentation needs decisions, constraints, and failure modes.",
     "The user should only ever see the current question or the final findings summary, not your full internal queue.",
@@ -683,16 +887,18 @@ function reinterrogatePrompt(
     `Use depth mode: ${depthMode}.`,
     "",
     "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old target-file task immediately, state that it was abandoned without writing, and continue only with the new task.",
     "1. Read the target document first and summarize what it currently says.",
     "2. Call `design_interview_start` using the target document's concept and the provided docs_dir, plus the optional style template.",
     "3. Compare the target doc against sibling decisions and identify what is stale, contradictory, missing, or underspecified.",
     "4. Keep the returned question set as a private working queue. Do not dump the whole queue to the user.",
     "5. Ask one reinterrogation question at a time, focusing on deltas: what changed, what should be retained, and what must be rewritten.",
     "6. If an answer is vague or evasive, ask a follow-up.",
-    "7. When the rewrite is resolved enough, present consolidated findings and ask the user to choose: confirm, modify, or deny.",
+    "7. When the rewrite is resolved enough, present consolidated findings and ask the user to choose: confirm, modify, deny, or cancel.",
     "8. If the user confirms, call `design_doc_generate` and overwrite the target document path with the modernized version.",
     "9. If the user asks to modify, keep the reinterrogation open and ask for confirmation again before writing.",
     "10. If the user denies, stop without writing anything.",
+    "11. If the user cancels, abandon the current target-file task, ask no further reinterrogation questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "Do not silently preserve stale assumptions just because they exist in the current file.",
     "Prefer concise bullets or short paragraphs per section rather than dense wall-of-text blocks."
@@ -711,6 +917,7 @@ function distillPrompt(
     `Use distill intensity: ${intensity}.`,
     "",
     "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old task immediately, state that it was abandoned without writing, and continue only with the new task.",
     "1. Call `design_interview_start` with the provided concept and docs_dir, using `challenge_mode=\"easy\"` and `depth_mode=\"fast\"`.",
     "2. Summarize what the docs already decide before proposing any scope.",
     "3. Ask only the minimum number of questions needed to define an exploratory implementation slice.",
@@ -726,8 +933,9 @@ function distillPrompt(
     "   - balanced: keep only what is needed to explore the feature honestly",
     "   - aggressive: cut to the narrowest believable implementation surface, maximizing stubs and explicit out-of-scope decisions",
     "7. Keep the question queue private and ask one question at a time.",
-    "8. Present the distilled findings and ask the user to choose: confirm, modify, or deny.",
+    "8. Present the distilled findings and ask the user to choose: confirm, modify, deny, or cancel.",
     "9. If the user wants it written, write it as a separate doc such as `<concept>-distill.md`, not as a replacement for the canonical spec.",
+    "10. If the user cancels, abandon the current file task entirely, ask no further distillation questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "This mode is for feature exploration, not full production design closure.",
     "Optimize for minimum implementation surface, not completeness."
@@ -740,6 +948,7 @@ function extricatePrompt(concept: string, docsDir: string, styleTemplatePath?: s
     ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
     "",
     "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old task immediately, state that it was abandoned without writing, and continue only with the new task.",
     "1. Call `design_summarize` for the feature to identify where it currently appears.",
     "2. Summarize the current role of the feature and the docs it touches.",
     "3. Ask the user whether this is a full removal, a retirement/deprecation, or a replacement/rename.",
@@ -750,8 +959,9 @@ function extricatePrompt(concept: string, docsDir: string, styleTemplatePath?: s
     "   - references to rewrite",
     "   - contradictions or gaps that removal would create",
     "   - any replacement wording if applicable",
-    "6. Ask the user to choose: confirm, modify, or deny.",
+    "6. Ask the user to choose: confirm, modify, deny, or cancel.",
     "7. Do not write anything unless the user explicitly asks you to apply the extrication.",
+    "8. If the user cancels, abandon the current file task entirely, ask no further extrication questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "This is dependency-aware removal, not blind deletion.",
     "Preserve historical clarity when retirement or replacement is more accurate than erasure."
@@ -821,6 +1031,7 @@ function convertPrompt(
     ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
     "",
     "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old target-file task immediately, state that it was abandoned without writing, and continue only with the new task.",
     "1. Read the source artifact first.",
     "2. Read any sibling docs needed to understand what the source already assumes.",
     "3. State what is being converted and what target form means in this case.",
@@ -829,8 +1040,9 @@ function convertPrompt(
     "   - what content gets reframed or promoted",
     "   - what content is intentionally dropped",
     "   - what output path or artifact should receive the conversion",
-    "5. Ask the user to choose: confirm, modify, or deny.",
+    "5. Ask the user to choose: confirm, modify, deny, or cancel.",
     "6. Do not write anything until the user confirms.",
+    "7. If the user cancels, abandon the current target-file task entirely, ask no further conversion questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "Examples of target forms: canonical-spec, distilled-spec, overwrite-existing-doc, summary-brief.",
     "The canonical spec should not be silently narrowed or overwritten just because a derivative artifact exists."
@@ -848,6 +1060,211 @@ function summarizePrompt(concept: string, docsDir: string, styleTemplatePath?: s
     "3. Do not interrogate the user.",
     "4. Do not propose new decisions.",
     "5. Clearly separate learned facts from unresolved areas."
+  ].join("\n");
+}
+
+function glossaryPrompt(
+  docsDir: string,
+  outputPath?: string,
+  styleTemplatePath?: string
+): string {
+  const resolvedOutputPath = outputPath ?? `${docsDir.replace(/[\\/]$/, "")}/glossary.md`;
+
+  return [
+    `Build a glossary of common design-space terms from the docs in "${docsDir}".`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    `Default output path: "${resolvedOutputPath}".`,
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old glossary task immediately, state that it was abandoned without writing, and continue only with the new task.",
+    "1. Read the docs set directly and identify repeated terms, role names, workflow labels, object names, and domain jargon that are central to the design space.",
+    "2. Prefer terms that recur across multiple docs or act as authority-bearing vocabulary. Do not pad the glossary with obvious generic software words.",
+    "3. For each candidate term, derive a definition grounded in the docs. If a term is ambiguous or overloaded, say so explicitly instead of inventing certainty.",
+    "4. Present a glossary plan before any write, including:",
+    "   - the terms you plan to include",
+    "   - any aliases or conflicting usages",
+    "   - the proposed output path",
+    "5. Ask the user to choose: confirm, modify, deny, or cancel.",
+    "6. Only write after explicit confirmation.",
+    "7. If the user confirms, write a glossary file at the chosen output path.",
+    "8. If the user denies, stop without writing anything.",
+    "9. If the user cancels, abandon the glossary task entirely, ask no further glossary questions, and make clear that nothing was written and the task was abandoned.",
+    "",
+    "Suggested output shape:",
+    "- Title",
+    "- Short scope note explaining that definitions are grounded in the current docs set",
+    "- Alphabetized term entries",
+    "- For each entry: term, concise definition, optional aliases, and file references where the term is used authoritatively",
+    "",
+    "Keep definitions concrete and local to this docs set. Do not turn the glossary into a generic textbook."
+  ].join("\n");
+}
+
+function exposePrompt(
+  docsDir: string,
+  outputPath?: string,
+  styleTemplatePath?: string
+): string {
+  const resolvedOutputPath = outputPath ?? `${docsDir.replace(/[\\/]$/, "")}/expose.md`;
+
+  return [
+    `Expose design gaps and underspecified seams from the docs in "${docsDir}".`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    `Default output path: "${resolvedOutputPath}".`,
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old expose task immediately, state that it was abandoned without writing, and continue only with the new task.",
+    "1. Read the docs set directly and identify where the design space is vague, contradictory, hand-wavy, or structurally incomplete.",
+    "2. Focus on missing decisions, undefined ownership, fuzzy boundaries, unstated dependencies, unclear lifecycle transitions, and terms that are used without being pinned down.",
+    "3. Separate grounded findings from your inferences. When the docs imply a likely gap rather than stating it directly, say that it is an inference.",
+    "4. Present an expose plan before any write, including:",
+    "   - the highest-risk gaps you plan to include",
+    "   - the files or concepts each gap touches",
+    "   - the proposed output path",
+    "5. Ask the user to choose: confirm, modify, deny, or cancel.",
+    "6. Only write after explicit confirmation.",
+    "7. If the user confirms, write the report at the chosen output path.",
+    "8. If the user denies, stop without writing anything.",
+    "9. If the user cancels, abandon the expose task entirely, ask no further expose questions, and make clear that nothing was written and the task was abandoned.",
+    "",
+    "Suggested output shape:",
+    "- Title",
+    "- Short scope note explaining that the report highlights unresolved or weakly specified areas in the current docs set",
+    "- Findings ordered by severity",
+    "- For each finding: gap statement, why it matters, affected files or concepts, and the concrete decision or clarification still missing",
+    "",
+    "Do not turn this into a rewrite. The point is to expose the weak seams, not to silently fill them in."
+  ].join("\n");
+}
+
+function revealPrompt(
+  docsDir: string,
+  topic?: string,
+  outputPath?: string,
+  styleTemplatePath?: string
+): string {
+  const defaultName = topic
+    ? `${topic.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "topic"}-reveal.md`
+    : "reveal.md";
+  const resolvedOutputPath = outputPath ?? `${docsDir.replace(/[\\/]$/, "")}/${defaultName}`;
+
+  return [
+    topic
+      ? `Reveal the remaining open questions about "${topic}" from the docs in "${docsDir}".`
+      : `Reveal the remaining open questions across the docs in "${docsDir}".`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    `Default output path: "${resolvedOutputPath}".`,
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old reveal task immediately, state that it was abandoned without writing, and continue only with the new task.",
+    ...(topic
+      ? [
+          "1. Read the docs directly and focus on unresolved questions, assumptions, contradictions, and incomplete edges related to the requested topic.",
+          "2. Distinguish between questions that are explicitly open in the docs and questions that remain open by inference because the docs never pin them down."
+        ]
+      : [
+          "1. Read the docs directly and identify the most important unresolved questions across the full design space.",
+          "2. Distinguish between questions that are explicitly open in the docs and questions that remain open by inference because the docs never pin them down."
+        ]),
+    "3. Group questions by theme, subsystem, or decision boundary rather than producing an undifferentiated list.",
+    "4. For each question, explain why it is still open, what files or concepts it touches, and what concrete answer would close it.",
+    "5. Present a reveal plan before any write, including:",
+    "   - the question groups you plan to include",
+    "   - whether each question is explicit or inferred",
+    "   - the proposed output path",
+    "6. Ask the user to choose: confirm, modify, deny, or cancel.",
+    "7. Only write after explicit confirmation.",
+    "8. If the user confirms, write the report at the chosen output path.",
+    "9. If the user denies, stop without writing anything.",
+    "10. If the user cancels, abandon the reveal task entirely, ask no further reveal questions, and make clear that nothing was written and the task was abandoned.",
+    "",
+    "Suggested output shape:",
+    "- Title",
+    "- Scope note saying whether this is holistic or topic-specific",
+    "- Question groups ordered by severity or blocking impact",
+    "- For each question: open question, status (`explicit` or `inferred`), affected files or concepts, and what decision is still missing",
+    "",
+    "Do not answer the questions for the user. The point is to surface what remains unresolved."
+  ].join("\n");
+}
+
+function refreshPrompt(
+  docsDir: string,
+  topic?: string,
+  outputPath?: string,
+  styleTemplatePath?: string
+): string {
+  const defaultName = topic
+    ? `${topic.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "topic"}-refresh.md`
+    : "refresh.md";
+  const resolvedOutputPath = outputPath ?? `${docsDir.replace(/[\\/]$/, "")}/${defaultName}`;
+
+  return [
+    topic
+      ? `Refresh potentially out-of-date design elements about "${topic}" from the docs in "${docsDir}".`
+      : `Refresh potentially out-of-date design elements across the docs in "${docsDir}".`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    `Default output path: "${resolvedOutputPath}".`,
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old refresh task immediately, state that it was abandoned without writing, and continue only with the new task.",
+    ...(topic
+      ? [
+          "1. Read the docs directly and identify where the requested topic appears stale, contradicted, superseded by newer sibling knowledge, or mismatched to surrounding assumptions.",
+          "2. Focus on elements that likely require a forced reinterrogation rather than a cosmetic edit."
+        ]
+      : [
+          "1. Read the docs directly and identify design elements that appear stale, contradicted, superseded by newer sibling knowledge, or mismatched to surrounding assumptions.",
+          "2. Focus on elements that likely require a forced reinterrogation rather than a cosmetic edit."
+        ]),
+    "3. For each candidate stale element, explain why it appears out of date and which file or concept should be reinterrogated to resolve it.",
+    "4. Build a forced-refresh plan before any write, including:",
+    "   - the stale elements you plan to include",
+    "   - the target docs or concepts that should be reinterrogated",
+    "   - the specific question areas that must be reopened",
+    "   - the proposed output path",
+    "5. Ask the user to choose: confirm, modify, deny, or cancel.",
+    "6. Only write after explicit confirmation.",
+    "7. If the user confirms, write the report at the chosen output path.",
+    "8. If the user denies, stop without writing anything.",
+    "9. If the user cancels, abandon the refresh task entirely, ask no further refresh questions, and make clear that nothing was written and the task was abandoned.",
+    "",
+    "Suggested output shape:",
+    "- Title",
+    "- Scope note saying whether this is holistic or topic-specific",
+    "- Findings ordered by severity or update urgency",
+    "- For each finding: stale element, why it looks outdated, affected files or concepts, and the forced interview areas required to update it",
+    "",
+    "Do not silently rewrite the docs during this step. The goal is to surface what needs a forced update interview, not to patch over drift without review."
+  ].join("\n");
+}
+
+function redressPrompt(
+  docPath: string,
+  docsDir: string,
+  styleTemplatePath?: string
+): string {
+  return [
+    `Redress the existing document at "${docPath}" using the current house style implied by the docs in "${docsDir}".`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, treat that new task as superseding this one. Cancel the old redress task immediately, state that it was abandoned without writing, and continue only with the new task.",
+    "1. Read the target document first.",
+    "2. Read sibling docs or the style template to infer the contemporary local house style.",
+    "3. Distinguish style drift from content drift. This command is for structure, headers, section ordering, metadata, version history shape, and other house-style alignment work.",
+    "4. Preserve the document's intent and substantive decisions unless a style fix cannot be separated from a content clarification. If that happens, call it out explicitly before writing.",
+    "5. Present a redress plan before any write, including:",
+    "   - what structural or stylistic elements will change",
+    "   - what substantive content will stay the same",
+    "   - any places where style repair may force a small wording clarification",
+    "6. Ask the user to choose: confirm, modify, deny, or cancel.",
+    "7. Only write after explicit confirmation.",
+    "8. If the user confirms, overwrite the target document path with the redressed version.",
+    "9. If the user denies, stop without writing anything.",
+    "10. If the user cancels, abandon the redress task entirely, ask no further redress questions, and make clear that nothing was written and the task was abandoned.",
+    "",
+    "Focus on bringing the file up to the current local house style, not on reopening every design decision."
   ].join("\n");
 }
 
