@@ -238,6 +238,7 @@ function assertPluginMcpConfig(config, label) {
       } else if (
         !server.args[2].includes("CLAUDE_PLUGIN_ROOT") ||
         !server.args[2].includes("CODEX_PLUGIN_ROOT") ||
+        !server.args[2].includes("PLUGIN_ROOT") ||
         !server.args[2].includes("runtime") ||
         !server.args[2].includes("dist") ||
         !server.args[2].includes("server.js")
