@@ -107,6 +107,8 @@ Command naming quick map:
 - Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:claude-interrogate-interrogate ...`
 - Codex plugin commands (plugin-installed, bare): `/claude-interrogate-interrogate ...`
 
+Note: the `.claude/commands/` project command set includes extra variants like `/interrogate-easy` and `/interrogate-fast`; the plugin command set does not.
+
 Note: the Codex plugin command names were previously unprefixed (for example `/interrogate`); the prefix is a breaking change intended to avoid collisions.
 
 Source-repo setup:
