@@ -94,8 +94,19 @@ const runtimeMcpConfig = await readManifest(runtimeMcpConfigPath);
 const sourcePluginMcpConfig = await readManifest(sourcePluginMcpConfigPath);
 const runtimePluginMcpConfig = await readManifest(runtimePluginMcpConfigPath);
 
-assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`);
-assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`);
+const expectedSkillsPath = sourceManifest.skills;
+if (typeof expectedSkillsPath !== "string" || !expectedSkillsPath.startsWith("./")) {
+  throw new Error(
+    `Source plugin manifest ${sourcePluginManifestPath} must include a relative skills path (found: ${String(expectedSkillsPath)})`,
+  );
+}
+
+assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`, {
+  expectedSkillsPath,
+});
+assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`, {
+  expectedSkillsPath,
+});
 assertMarketplaceMetadata(runtimeMarketplace, runtimeMarketplacePath);
 assertMcpConfig(runtimeMcpConfig, runtimeMcpConfigPath);
 assertPluginMcpConfig(sourcePluginMcpConfig, sourcePluginMcpConfigPath);
@@ -115,11 +126,11 @@ async function readManifest(manifestPath) {
   return JSON.parse(await readFile(manifestPath, "utf8"));
 }
 
-function assertPublicMetadata(manifest, label) {
+function assertPublicMetadata(manifest, label, options = {}) {
   const failures = [];
 
-  if (manifest.skills !== "./skills/") {
-    failures.push('skills must be "./skills/"');
+  if (options.expectedSkillsPath && manifest.skills !== options.expectedSkillsPath) {
+    failures.push(`skills must be "${options.expectedSkillsPath}"`);
   }
 
   if (manifest.author?.name !== expectedDeveloperName) {

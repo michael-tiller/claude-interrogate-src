@@ -94,7 +94,7 @@ Command naming quick map:
 
 - Claude Code project commands (from `.claude/commands/`): `/interrogate ...`
 - Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:interrogate ...`
-- Codex skills: run `/skills` and select `claude-interrogate-interrogate` (or mention it via `$`).
+- Codex skills: run `/skills` and select one of the `claude-interrogate-*` skills (for example, `claude-interrogate-interrogate`, `claude-interrogate-audit-docs`, or `claude-interrogate-sync-docs`).
 
 Note: the `.claude/commands/` project command set includes extra variants like `/interrogate-easy` and `/interrogate-fast`; the plugin command set does not.
 
