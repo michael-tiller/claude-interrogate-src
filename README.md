@@ -81,13 +81,20 @@ That produces `runtime-dist/`, which is intended to be published as the separate
 
 After install in Claude Code, the plugin provides a set of design-doc commands. See `plugins/claude-interrogate/README.md` for the full plugin command list (and details on Codex vs Claude Code command naming).
 
-Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace), e.g. `/interrogate ...`.
+Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, install the plugin and use its skills:
+
+- Run `/skills` (or type `$`) and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+
+To confirm the MCP server is attached in the current Codex session, run `/mcp`.
 
 Command naming quick map:
 
 - Claude Code project commands (from `.claude/commands/`): `/interrogate ...`
 - Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:interrogate ...`
-- Codex commands (bare): `/interrogate ...`
+- Codex skills: run `/skills` and select `claude-interrogate-interrogate` (or mention it via `$`).
 
 Note: the `.claude/commands/` project command set includes extra variants like `/interrogate-easy` and `/interrogate-fast`; the plugin command set does not.
 

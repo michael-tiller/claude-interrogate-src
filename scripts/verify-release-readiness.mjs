@@ -40,6 +40,8 @@ const runtimePluginRuntimeServerPath = path.join(
   "dist",
   "server.js",
 );
+const sourcePluginSkillsPath = path.join(root, "plugins", "claude-interrogate", "skills");
+const runtimePluginSkillsPath = path.join(runtimeRoot, "plugin", "skills");
 
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
@@ -76,6 +78,14 @@ await assertExists(
   runtimePluginRuntimeServerPath,
   "runtime-dist/plugin/runtime/dist/server.js is missing. Rebuild the runtime payload before running release checks.",
 );
+await assertExists(
+  sourcePluginSkillsPath,
+  "plugins/claude-interrogate/skills is missing.",
+);
+await assertExists(
+  runtimePluginSkillsPath,
+  "runtime-dist/plugin/skills is missing. Rebuild the runtime payload before running release checks.",
+);
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const runtimeManifest = await readManifest(runtimePluginManifestPath);
@@ -107,6 +117,10 @@ async function readManifest(manifestPath) {
 
 function assertPublicMetadata(manifest, label) {
   const failures = [];
+
+  if (manifest.skills !== "./skills/") {
+    failures.push('skills must be "./skills/"');
+  }
 
   if (manifest.author?.name !== expectedDeveloperName) {
     failures.push(`author.name must be "${expectedDeveloperName}"`);

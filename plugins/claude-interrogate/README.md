@@ -23,9 +23,15 @@ Claude Code commands (namespaced):
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 
-Codex note: interactive slash commands are exposed as bare slash names (no `claude-interrogate:` namespace). For example, use `/interrogate test-concept`, not `/claude-interrogate:interrogate test-concept`.
+Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, use the installed skills:
 
-This plugin does not provide prefixed commands like `/claude-interrogate-interrogate`.
+- Run `/skills` and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+- Or type `$` and mention the skill by name.
+
+If you want to confirm the MCP server is attached in the current Codex session, run `/mcp`.
 
 Requirements:
 
@@ -34,4 +40,4 @@ Requirements:
 
 For runtime distribution, publish the prepared payload from `runtime-dist/` instead of this source repo directly.
 
-For Codex, use the repository or runtime `.mcp.json` to attach the MCP server manually rather than a plugin marketplace flow.
+For Codex, install the plugin if you want the skills UX. If you only want MCP tools, attach the repository or runtime `.mcp.json` manually.

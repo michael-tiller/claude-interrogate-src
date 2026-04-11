@@ -53,21 +53,15 @@ In Codex, attach the runtime distribution repo's checked-in `.mcp.json` (or, fro
 
 The installable plugin payload is also self-contained: its `runtime-dist/plugin/.mcp.json` launches Node with a small inline loader that resolves the installed plugin root (via env vars or Codex's `~/.codex/plugins/cache/...` layout) and then imports `runtime/dist/server.js`, so the cached plugin copy does not depend on any sibling runtime directory.
 
-After install in Codex, users should at least get commands like:
+After install in Codex:
 
-- `/interrogate`
-- `/interrogate-hard`
-- `/audit-docs`
-- `/sync-docs`
+- Run `/skills` (or type `$`) and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+- Run `/mcp` to confirm the `claude-interrogate` MCP tools are available in this session.
 
-Codex exposes these as bare slash commands (no `claude-interrogate:` namespace). This plugin does not provide `/claude-interrogate:*` or `/claude-interrogate-*` command forms.
-
-If you see older docs/examples using prefixed commands, the equivalent bare commands are:
-
-- `/claude-interrogate-interrogate` -> `/interrogate`
-- `/claude-interrogate-interrogate-hard` -> `/interrogate-hard`
-- `/claude-interrogate-audit-docs` -> `/audit-docs`
-- `/claude-interrogate-sync-docs` -> `/sync-docs`
+Codex does not register new top-level `/...` slash commands from this plugin.
 
 For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 

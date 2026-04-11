@@ -152,6 +152,12 @@ In Codex, attach the runtime repo's checked-in \`.mcp.json\`, which runs:
 }
 \`\`\`
 
+Codex workflows are exposed as skills (not new top-level slash commands). Run \`/skills\` (or type \`$\`) and select:
+
+- \`claude-interrogate-interrogate\`
+- \`claude-interrogate-audit-docs\`
+- \`claude-interrogate-sync-docs\`
+
 Repository:
 
 - https://github.com/michael-tiller/claude-interrogate
