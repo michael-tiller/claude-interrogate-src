@@ -60,6 +60,8 @@ After install in Codex, users should at least get commands like:
 - `/audit-docs`
 - `/sync-docs`
 
+Codex exposes these as bare slash commands; it does not recognize `/claude-interrogate:*` or `/claude-interrogate-*` command forms.
+
 For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
 ## Current Limitation
