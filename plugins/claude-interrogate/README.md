@@ -25,7 +25,7 @@ Claude Code commands (namespaced):
 
 Codex note: interactive slash commands are exposed as bare slash names (no `claude-interrogate:` namespace). For example, use `/interrogate test-concept`, not `/claude-interrogate:interrogate test-concept`.
 
-Codex does not recognize commands like `/claude-interrogate-interrogate`.
+This plugin does not provide prefixed commands like `/claude-interrogate-interrogate`.
 
 Requirements:
 

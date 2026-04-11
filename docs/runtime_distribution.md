@@ -60,7 +60,14 @@ After install in Codex, users should at least get commands like:
 - `/audit-docs`
 - `/sync-docs`
 
-Codex exposes these as bare slash commands; it does not recognize `/claude-interrogate:*` or `/claude-interrogate-*` command forms.
+Codex exposes these as bare slash commands (no `claude-interrogate:` namespace). This plugin does not provide `/claude-interrogate:*` or `/claude-interrogate-*` command forms.
+
+If you see older docs/examples using prefixed commands, the equivalent bare commands are:
+
+- `/claude-interrogate-interrogate` -> `/interrogate`
+- `/claude-interrogate-interrogate-hard` -> `/interrogate-hard`
+- `/claude-interrogate-audit-docs` -> `/audit-docs`
+- `/claude-interrogate-sync-docs` -> `/sync-docs`
 
 For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
