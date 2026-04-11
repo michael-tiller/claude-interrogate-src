@@ -40,6 +40,8 @@ const runtimePluginRuntimeServerPath = path.join(
   "dist",
   "server.js",
 );
+const sourcePluginSkillsPath = path.join(root, "plugins", "claude-interrogate", "skills");
+const runtimePluginSkillsPath = path.join(runtimeRoot, "plugin", "skills");
 
 const expectedRepoUrl = "https://github.com/michael-tiller/claude-interrogate";
 const expectedDeveloperName = "Michael Tiller";
@@ -76,6 +78,14 @@ await assertExists(
   runtimePluginRuntimeServerPath,
   "runtime-dist/plugin/runtime/dist/server.js is missing. Rebuild the runtime payload before running release checks.",
 );
+await assertExists(
+  sourcePluginSkillsPath,
+  "plugins/claude-interrogate/skills is missing.",
+);
+await assertExists(
+  runtimePluginSkillsPath,
+  "runtime-dist/plugin/skills is missing. Rebuild the runtime payload before running release checks.",
+);
 
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const runtimeManifest = await readManifest(runtimePluginManifestPath);
@@ -84,8 +94,19 @@ const runtimeMcpConfig = await readManifest(runtimeMcpConfigPath);
 const sourcePluginMcpConfig = await readManifest(sourcePluginMcpConfigPath);
 const runtimePluginMcpConfig = await readManifest(runtimePluginMcpConfigPath);
 
-assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`);
-assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`);
+const expectedSkillsPath = sourceManifest.skills;
+if (typeof expectedSkillsPath !== "string" || !expectedSkillsPath.startsWith("./")) {
+  throw new Error(
+    `Source plugin manifest ${sourcePluginManifestPath} must include a relative skills path (found: ${String(expectedSkillsPath)})`,
+  );
+}
+
+assertPublicMetadata(sourceManifest, `Source plugin manifest ${sourcePluginManifestPath}`, {
+  expectedSkillsPath,
+});
+assertPublicMetadata(runtimeManifest, `Runtime plugin manifest ${runtimePluginManifestPath}`, {
+  expectedSkillsPath,
+});
 assertMarketplaceMetadata(runtimeMarketplace, runtimeMarketplacePath);
 assertMcpConfig(runtimeMcpConfig, runtimeMcpConfigPath);
 assertPluginMcpConfig(sourcePluginMcpConfig, sourcePluginMcpConfigPath);
@@ -105,8 +126,12 @@ async function readManifest(manifestPath) {
   return JSON.parse(await readFile(manifestPath, "utf8"));
 }
 
-function assertPublicMetadata(manifest, label) {
+function assertPublicMetadata(manifest, label, options = {}) {
   const failures = [];
+
+  if (options.expectedSkillsPath && manifest.skills !== options.expectedSkillsPath) {
+    failures.push(`skills must be "${options.expectedSkillsPath}"`);
+  }
 
   if (manifest.author?.name !== expectedDeveloperName) {
     failures.push(`author.name must be "${expectedDeveloperName}"`);
@@ -220,12 +245,44 @@ function assertPluginMcpConfig(config, label) {
     if (server.command !== "node") {
       failures.push('mcpServers["claude-interrogate"].command must be "node"');
     }
-    if (!Array.isArray(server.args) || server.args.length !== 1) {
-      failures.push('mcpServers["claude-interrogate"].args must contain exactly one runtime path');
-    } else if (server.args[0] !== "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js") {
+
+    if (!Array.isArray(server.args) || server.args.length !== 3) {
       failures.push(
-        'mcpServers["claude-interrogate"].args[0] must be "${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js"',
+        'mcpServers["claude-interrogate"].args must contain ["--input-type=commonjs", "-e", "<script>"]',
       );
+    } else {
+      if (server.args[0] !== "--input-type=commonjs") {
+        failures.push(
+          'mcpServers["claude-interrogate"].args[0] must be "--input-type=commonjs"',
+        );
+      }
+
+      if (server.args[1] !== "-e") {
+        failures.push('mcpServers["claude-interrogate"].args[1] must be "-e"');
+      }
+
+      if (typeof server.args[2] !== "string") {
+        failures.push('mcpServers["claude-interrogate"].args[2] must be a script');
+      } else {
+        const requiredTokens = [
+          "claude-interrogate",
+          "runtime",
+          "dist",
+          "server.js",
+          ".codex",
+          "plugins",
+          "cache",
+          "claude-interrogate MCP server",
+        ];
+
+        for (const token of requiredTokens) {
+          if (!server.args[2].includes(token)) {
+            failures.push(
+              `mcpServers["claude-interrogate"].args[2] must include "${token}"`,
+            );
+          }
+        }
+      }
     }
   }
 

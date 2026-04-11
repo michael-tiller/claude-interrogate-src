@@ -5,7 +5,7 @@ A Socratic design-document interviewer for Claude Code, shipped as an MCP server
 
 The interview is mildly adversarial by design: it asks for rejected alternatives, failure evidence, and the cost of leaving a decision vague. `--challenge` raises that tone further.
 
-Current release history lives in [CHANGELOG.md](E:/Personal/claude-interrogate/CHANGELOG.md).
+Current release history lives in [CHANGELOG.md](CHANGELOG.md).
 
 ## What It Does
 
@@ -69,7 +69,7 @@ Codex manual MCP setup from this repo:
 }
 ```
 
-This repository already includes that configuration in [`.mcp.json`](E:/Personal/claude-interrogate/.mcp.json). Build the repo, then attach the workspace MCP server from Codex.
+This repository already includes that configuration in [`.mcp.json`](.mcp.json). Build the repo, then attach the workspace MCP server from Codex.
 
 For a clean public/runtime repo split, generate the distribution payload with:
 
@@ -79,28 +79,24 @@ npm run prepare:runtime-dist
 
 That produces `runtime-dist/`, which is intended to be published as the separate runtime/install repository.
 
-After install, the plugin provides:
+After install in Claude Code, the plugin provides a set of design-doc commands. See `plugins/claude-interrogate/README.md` for the full plugin command list (and details on Codex vs Claude Code command naming).
 
-- `/claude-interrogate:interrogate <concept> [docs-dir]`
-- `/claude-interrogate:interrogate-easy <concept> [docs-dir]`
-- `/claude-interrogate:interrogate-fast <concept> [docs-dir]`
-- `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
-- `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
-- `/claude-interrogate:reinterrogate-easy <doc-path> [docs-dir]`
-- `/claude-interrogate:reinterrogate-fast <doc-path> [docs-dir]`
-- `/claude-interrogate:redress <doc-path> [docs-dir]`
-- `/claude-interrogate:distill <concept> [docs-dir]`
-- `/claude-interrogate:distill-hard <concept> [docs-dir]`
-- `/claude-interrogate:extricate <concept> [docs-dir]`
-- `/claude-interrogate:trace <concept> [docs-dir]`
-- `/claude-interrogate:convert <source> [docs-dir]`
-- `/claude-interrogate:expose [docs-dir]`
-- `/claude-interrogate:glossary [docs-dir]`
-- `/claude-interrogate:refresh [docs-dir] [topic]`
-- `/claude-interrogate:reveal [docs-dir] [topic]`
-- `/claude-interrogate:summarize <concept> [docs-dir]`
-- `/claude-interrogate:audit-docs [docs-dir]`
-- `/claude-interrogate:sync-docs [docs-dir]`
+Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, install the plugin and use its skills:
+
+- Run `/skills` (or type `$`) and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+
+To confirm the MCP server is attached in the current Codex session, run `/mcp`.
+
+Command naming quick map:
+
+- Claude Code project commands (from `.claude/commands/`): `/interrogate ...`
+- Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:interrogate ...`
+- Codex skills: run `/skills` and select one of the `claude-interrogate-*` skills (for example, `claude-interrogate-interrogate`, `claude-interrogate-audit-docs`, or `claude-interrogate-sync-docs`).
+
+Note: the `.claude/commands/` project command set includes extra variants like `/interrogate-easy` and `/interrogate-fast`; the plugin command set does not.
 
 Source-repo setup:
 
@@ -115,7 +111,7 @@ Project MCP setup:
 /mcp
 ```
 
-This repository includes both a project-scoped [.mcp.json](E:/Personal/claude-interrogate/.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](E:/Personal/claude-interrogate/plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config. The build now syncs the compiled server into `plugins/claude-interrogate/runtime/dist/` so installed plugin copies remain self-contained.
+This repository includes both a project-scoped [.mcp.json](.mcp.json) and an installable plugin scaffold under [plugins/claude-interrogate](plugins/claude-interrogate). After `npm run build`, Claude Code can use the plugin/project command path and Codex can attach the MCP server from the checked-in config. The build now syncs the compiled server into `plugins/claude-interrogate/runtime/dist/` so installed plugin copies remain self-contained.
 
 Run the CLI:
 
@@ -181,27 +177,8 @@ What works now:
   - `/summarize <concept> [docs-dir]`
   - `/audit-docs [docs-dir]`
   - `/sync-docs [docs-dir]`
-- Claude Code can use plugin-installed slash commands:
-  - `/claude-interrogate:interrogate <concept> [docs-dir]`
-  - `/claude-interrogate:interrogate-easy <concept> [docs-dir]`
-  - `/claude-interrogate:interrogate-fast <concept> [docs-dir]`
-  - `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
-  - `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
-  - `/claude-interrogate:reinterrogate-easy <doc-path> [docs-dir]`
-  - `/claude-interrogate:reinterrogate-fast <doc-path> [docs-dir]`
-  - `/claude-interrogate:redress <doc-path> [docs-dir]`
-  - `/claude-interrogate:distill <concept> [docs-dir]`
-  - `/claude-interrogate:distill-hard <concept> [docs-dir]`
-  - `/claude-interrogate:extricate <concept> [docs-dir]`
-  - `/claude-interrogate:trace <concept> [docs-dir]`
-  - `/claude-interrogate:convert <source> [docs-dir]`
-  - `/claude-interrogate:expose [docs-dir]`
-  - `/claude-interrogate:glossary [docs-dir]`
-  - `/claude-interrogate:refresh [docs-dir] [topic]`
-  - `/claude-interrogate:reveal [docs-dir] [topic]`
-  - `/claude-interrogate:summarize <concept> [docs-dir]`
-  - `/claude-interrogate:audit-docs [docs-dir]`
-  - `/claude-interrogate:sync-docs [docs-dir]`
+- Claude Code can use plugin-installed slash commands (namespaced); see the install section above.
+- Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace); see the install section above.
 - The tool surface is:
   - `design_interview_start`
   - `design_summarize`

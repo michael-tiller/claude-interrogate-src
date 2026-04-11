@@ -3,11 +3,9 @@ Updated: 2026-04-08
 
 Install this plugin from a Claude Code marketplace to get design-doc commands and the backing MCP server in one package.
 
-Commands:
+Claude Code commands (namespaced):
 
 - `/claude-interrogate:interrogate <concept> [docs-dir]`
-- `/claude-interrogate:interrogate-easy <concept> [docs-dir]`
-- `/claude-interrogate:interrogate-fast <concept> [docs-dir]`
 - `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
 - `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
 - `/claude-interrogate:redress <doc-path> [docs-dir]`
@@ -25,6 +23,16 @@ Commands:
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
 
+Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, use the installed skills:
+
+- Run `/skills` and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+- Or type `$` and mention the skill by name.
+
+If you want to confirm the MCP server is attached in the current Codex session, run `/mcp`.
+
 Requirements:
 
 - The plugin payload must include the built server at `runtime/dist/server.js`.
@@ -32,4 +40,4 @@ Requirements:
 
 For runtime distribution, publish the prepared payload from `runtime-dist/` instead of this source repo directly.
 
-For Codex, use the repository or runtime `.mcp.json` to attach the MCP server manually rather than a plugin marketplace flow.
+For Codex, install the plugin if you want the skills UX. If you only want MCP tools, attach the repository or runtime `.mcp.json` manually.

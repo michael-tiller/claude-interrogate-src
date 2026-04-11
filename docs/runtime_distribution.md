@@ -14,12 +14,12 @@ npm run prepare:runtime-dist
 
 That creates:
 
-- [runtime-dist/README.md](E:/Personal/claude-interrogate/runtime-dist/README.md)
-- [runtime-dist/.claude-plugin/marketplace.json](E:/Personal/claude-interrogate/runtime-dist/.claude-plugin/marketplace.json)
-- [runtime-dist/.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json)
-- [runtime-dist/plugin](E:/Personal/claude-interrogate/runtime-dist/plugin)
-- [runtime-dist/plugin/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/plugin/runtime/dist)
-- [runtime-dist/runtime/dist](E:/Personal/claude-interrogate/runtime-dist/runtime/dist)
+- `runtime-dist/README.md`
+- `runtime-dist/.claude-plugin/marketplace.json`
+- `runtime-dist/.mcp.json`
+- `runtime-dist/plugin/`
+- `runtime-dist/plugin/runtime/dist/`
+- `runtime-dist/runtime/dist/`
 
 If `distribution-repo/` is a checked-out copy of the public runtime repo, you can also refresh it in place without deleting its `.git/` metadata:
 
@@ -49,16 +49,21 @@ In the runtime repo:
 /plugin install claude-interrogate
 ```
 
-In Codex, attach the runtime repo's checked-in [.mcp.json](E:/Personal/claude-interrogate/runtime-dist/.mcp.json), which points at `./runtime/dist/server.js`.
+In Codex, attach the runtime distribution repo's checked-in `.mcp.json` (or, from this source repo, `runtime-dist/.mcp.json`). It points at `./runtime/dist/server.js`.
 
-The installable plugin payload is also self-contained: its [`.mcp.json`](E:/Personal/claude-interrogate/runtime-dist/plugin/.mcp.json) points at `${CLAUDE_PLUGIN_ROOT}/runtime/dist/server.js`, so Claude's cached plugin copy does not depend on any sibling runtime directory.
+The installable plugin payload is also self-contained: its `runtime-dist/plugin/.mcp.json` launches Node with a small inline loader that resolves the installed plugin root (via env vars or Codex's `~/.codex/plugins/cache/...` layout) and then imports `runtime/dist/server.js`, so the cached plugin copy does not depend on any sibling runtime directory.
 
-After install, users should get:
+After install in Codex:
 
-- `/claude-interrogate:interrogate`
-- `/claude-interrogate:interrogate-hard`
-- `/claude-interrogate:audit-docs`
-- `/claude-interrogate:sync-docs`
+- Run `/skills` (or type `$`) and select one of:
+  - `claude-interrogate-interrogate`
+  - `claude-interrogate-audit-docs`
+  - `claude-interrogate-sync-docs`
+- Run `/mcp` to confirm the `claude-interrogate` MCP tools are available in this session.
+
+Codex does not register new top-level `/...` slash commands from this plugin.
+
+For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
 ## Current Limitation
 
