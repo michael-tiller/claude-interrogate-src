@@ -60,6 +60,8 @@ After install in Codex, users should at least get commands like:
 - `/claude-interrogate-audit-docs`
 - `/claude-interrogate-sync-docs`
 
+Note: these Codex plugin command names were previously unprefixed (for example `/interrogate`); the prefix is a breaking change intended to avoid collisions.
+
 For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
 ## Current Limitation

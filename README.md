@@ -99,7 +99,15 @@ After install in Claude Code, the plugin provides:
 - `/claude-interrogate:claude-interrogate-audit-docs [docs-dir]`
 - `/claude-interrogate:claude-interrogate-sync-docs [docs-dir]`
 
-Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace). Because plugin commands are prefixed to avoid collisions, use commands like `/claude-interrogate-interrogate ...`. See `plugins/claude-interrogate/README.md` for details.
+Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace). Because plugin commands are prefixed to avoid collisions, use commands like `/claude-interrogate-interrogate ...`.
+
+Command naming quick map:
+
+- Claude Code project commands (from `.claude/commands/`): `/interrogate ...`
+- Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:claude-interrogate-interrogate ...`
+- Codex plugin commands (plugin-installed, bare): `/claude-interrogate-interrogate ...`
+
+Note: the Codex plugin command names were previously unprefixed (for example `/interrogate`); the prefix is a breaking change intended to avoid collisions.
 
 Source-repo setup:
 

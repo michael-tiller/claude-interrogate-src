@@ -25,6 +25,8 @@ Claude Code commands (namespaced):
 
 Codex note: when installed as a Codex plugin, interactive slash commands come from `commands/*.md` filenames as bare slash names (no `claude-interrogate:` namespace). These command filenames are prefixed to avoid collisions. For example, use `/claude-interrogate-interrogate test-concept`, not `/claude-interrogate:claude-interrogate-interrogate test-concept`.
 
+Note: older installs/docs used unprefixed Codex commands like `/interrogate`; the prefixed commands are a breaking rename.
+
 Requirements:
 
 - The plugin payload must include the built server at `runtime/dist/server.js`.
