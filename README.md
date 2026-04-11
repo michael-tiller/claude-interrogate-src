@@ -80,20 +80,17 @@ npm run prepare:runtime-dist
 That produces `runtime-dist/`, which is intended to be published as the separate runtime/install repository.
 
 After install in Claude Code, the plugin provides:
-
 See `plugins/claude-interrogate/README.md` for the full plugin command list (and details on Codex vs Claude Code command naming).
 
-Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace). Because plugin commands are prefixed to avoid collisions, use commands like `/claude-interrogate-interrogate ...`.
+Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace), e.g. `/interrogate ...`.
 
 Command naming quick map:
 
 - Claude Code project commands (from `.claude/commands/`): `/interrogate ...`
-- Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:claude-interrogate-interrogate ...`
-- Codex plugin commands (plugin-installed, bare): `/claude-interrogate-interrogate ...`
+- Claude Code plugin commands (plugin-installed, namespaced): `/claude-interrogate:interrogate ...`
+- Codex commands (bare): `/interrogate ...`
 
 Note: the `.claude/commands/` project command set includes extra variants like `/interrogate-easy` and `/interrogate-fast`; the plugin command set does not.
-
-Note: the Codex plugin command names were previously unprefixed (for example `/interrogate`); the prefix is a breaking change intended to avoid collisions.
 
 Source-repo setup:
 
@@ -174,7 +171,29 @@ What works now:
   - `/summarize <concept> [docs-dir]`
   - `/audit-docs [docs-dir]`
   - `/sync-docs [docs-dir]`
+<<<<<<< HEAD
 - Claude Code can use plugin-installed slash commands (namespaced); see the install section above.
+=======
+- Claude Code can use plugin-installed slash commands:
+  - `/claude-interrogate:interrogate <concept> [docs-dir]`
+  - `/claude-interrogate:interrogate-hard <concept> [docs-dir]`
+  - `/claude-interrogate:reinterrogate <doc-path> [docs-dir]`
+  - `/claude-interrogate:redress <doc-path> [docs-dir]`
+  - `/claude-interrogate:distill <concept> [docs-dir]`
+  - `/claude-interrogate:distill-hard <concept> [docs-dir]`
+  - `/claude-interrogate:extricate <concept> [docs-dir]`
+  - `/claude-interrogate:trace <concept> [docs-dir]`
+  - `/claude-interrogate:trace --index [docs-dir]`
+  - `/claude-interrogate:convert <source> [docs-dir]`
+  - `/claude-interrogate:expose [docs-dir]`
+  - `/claude-interrogate:glossary [docs-dir]`
+  - `/claude-interrogate:refresh [docs-dir] [topic]`
+  - `/claude-interrogate:reveal [docs-dir] [topic]`
+  - `/claude-interrogate:summarize <concept> [docs-dir]`
+  - `/claude-interrogate:audit-docs [docs-dir]`
+  - `/claude-interrogate:sync-docs [docs-dir]`
+  - Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace); see the install section above.
+>>>>>>> 2bc2551 (fix(codex): restore bare command names)
 - The tool surface is:
   - `design_interview_start`
   - `design_summarize`

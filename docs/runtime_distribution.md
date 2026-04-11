@@ -55,12 +55,10 @@ The installable plugin payload is also self-contained: its `runtime-dist/plugin/
 
 After install in Codex, users should at least get commands like:
 
-- `/claude-interrogate-interrogate`
-- `/claude-interrogate-interrogate-hard`
-- `/claude-interrogate-audit-docs`
-- `/claude-interrogate-sync-docs`
-
-Note: these Codex plugin command names were previously unprefixed (for example `/interrogate`); the prefix is a breaking change intended to avoid collisions.
+- `/interrogate`
+- `/interrogate-hard`
+- `/audit-docs`
+- `/sync-docs`
 
 For the full command list (and details on Codex vs Claude Code command naming), see `plugins/claude-interrogate/README.md`.
 
