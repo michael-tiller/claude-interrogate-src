@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "claude-release@llamabrain-release": true
+  }
+}
