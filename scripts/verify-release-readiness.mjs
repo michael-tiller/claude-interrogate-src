@@ -1,8 +1,22 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
 const runtimeRoot = path.join(root, "runtime-dist");
+const distributionRoot = path.join(root, "distribution-repo");
+
+// Subdirectories and files that ship as part of the published artifact.
+// `.git`, `.gitignore`, and similar repo-local files are deliberately excluded
+// because they differ between runtime-dist (no git) and distribution-repo
+// (has git history) without affecting what users install.
+const SHIPPED_PAYLOAD_ENTRIES = [
+  ".claude-plugin",
+  "plugin",
+  "runtime",
+  "README.md",
+  "LICENSE.md",
+  ".mcp.json",
+];
 const sourcePluginManifestPath = path.join(
   root,
   "plugins",
@@ -192,7 +206,129 @@ assertMcpConfig(runtimeMcpConfig, runtimeMcpConfigPath);
 assertPluginMcpConfig(sourcePluginMcpConfig, sourcePluginMcpConfigPath);
 assertPluginMcpConfig(runtimePluginMcpConfig, runtimePluginMcpConfigPath);
 
+await verifyDistributionInSync();
+
 console.log("Release readiness checks passed.");
+
+async function verifyDistributionInSync() {
+  // When the script runs from `prepare:distribution-repo`, distribution-repo is
+  // guaranteed to exist (prepare-runtime-dist.mjs throws if --sync-distribution-repo
+  // was passed without it). When the script runs from `prepare:runtime-dist`
+  // standalone (a runtime-only dev flow), distribution-repo may not be cloned at
+  // all, and there's nothing to check. We log the decision either way so the
+  // action is visible — never silent.
+  const distributionExists = await pathExists(distributionRoot);
+  if (!distributionExists) {
+    console.log(
+      "Distribution sync check: skipped (distribution-repo/ not present — runtime-only flow).",
+    );
+    return;
+  }
+
+  console.log("Distribution sync check: comparing runtime-dist/ against distribution-repo/...");
+
+  const drift = [];
+
+  for (const entry of SHIPPED_PAYLOAD_ENTRIES) {
+    const runtimePath = path.join(runtimeRoot, entry);
+    const distributionPath = path.join(distributionRoot, entry);
+
+    const runtimeHasEntry = await pathExists(runtimePath);
+    const distributionHasEntry = await pathExists(distributionPath);
+
+    if (!runtimeHasEntry && !distributionHasEntry) continue;
+    if (!runtimeHasEntry) {
+      drift.push(`distribution-repo has "${entry}" but runtime-dist does not`);
+      continue;
+    }
+    if (!distributionHasEntry) {
+      drift.push(`runtime-dist has "${entry}" but distribution-repo does not`);
+      continue;
+    }
+
+    const entryDrift = await diffEntry(runtimePath, distributionPath, entry);
+    drift.push(...entryDrift);
+  }
+
+  if (drift.length > 0) {
+    throw new Error(
+      [
+        "distribution-repo/ is out of sync with runtime-dist/.",
+        "This is the failure mode that caused v0.1.3 to ship without the new flows.",
+        "Run `npm run prepare:distribution-repo` to regenerate distribution-repo before releasing.",
+        "Drift:",
+        ...drift.map((d) => `  - ${d}`),
+      ].join("\n"),
+    );
+  }
+
+  console.log("Distribution sync check: passed.");
+}
+
+async function diffEntry(runtimePath, distributionPath, relativeLabel) {
+  const runtimeStat = await stat(runtimePath);
+  const distributionStat = await stat(distributionPath);
+
+  if (runtimeStat.isDirectory() !== distributionStat.isDirectory()) {
+    return [
+      `"${relativeLabel}" is a ${runtimeStat.isDirectory() ? "directory" : "file"} in runtime-dist but a ${
+        distributionStat.isDirectory() ? "directory" : "file"
+      } in distribution-repo`,
+    ];
+  }
+
+  if (runtimeStat.isDirectory()) {
+    return diffDirectory(runtimePath, distributionPath, relativeLabel);
+  }
+
+  return diffFile(runtimePath, distributionPath, relativeLabel);
+}
+
+async function diffDirectory(runtimePath, distributionPath, relativeLabel) {
+  const drift = [];
+  const runtimeEntries = new Set(await readdir(runtimePath));
+  const distributionEntries = new Set(await readdir(distributionPath));
+
+  const all = new Set([...runtimeEntries, ...distributionEntries]);
+
+  for (const child of all) {
+    const childLabel = `${relativeLabel}/${child}`;
+    const inRuntime = runtimeEntries.has(child);
+    const inDistribution = distributionEntries.has(child);
+
+    if (inRuntime && !inDistribution) {
+      drift.push(`"${childLabel}" exists in runtime-dist but not distribution-repo`);
+      continue;
+    }
+    if (!inRuntime && inDistribution) {
+      drift.push(`"${childLabel}" exists in distribution-repo but not runtime-dist`);
+      continue;
+    }
+
+    const childRuntime = path.join(runtimePath, child);
+    const childDistribution = path.join(distributionPath, child);
+    drift.push(...(await diffEntry(childRuntime, childDistribution, childLabel)));
+  }
+
+  return drift;
+}
+
+async function diffFile(runtimePath, distributionPath, relativeLabel) {
+  const runtimeBytes = await readFile(runtimePath);
+  const distributionBytes = await readFile(distributionPath);
+
+  if (runtimeBytes.equals(distributionBytes)) return [];
+  return [`"${relativeLabel}" content differs between runtime-dist and distribution-repo`];
+}
+
+async function pathExists(targetPath) {
+  try {
+    await access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function assertExists(targetPath, message) {
   try {
