@@ -59,6 +59,7 @@ After install in Codex:
   - `claude-interrogate-interrogate`
   - `claude-interrogate-audit-docs`
   - `claude-interrogate-sync-docs`
+  - `claude-interrogate-adr`
 - Run `/mcp` to confirm the `claude-interrogate` MCP tools are available in this session.
 
 Codex does not register new top-level `/...` slash commands from this plugin.

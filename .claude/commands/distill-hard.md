@@ -8,6 +8,13 @@ Rules:
 - Prefer the MCP prompt `/mcp__claude_interrogate__distill $1 $2` with `intensity="aggressive"`.
 - Treat the distilled spec as a separate living artifact derived from the real spec, not a replacement for it.
 
+Output Structure:
+- Lead with a Definition of Done: a `- [ ]` checklist at the top of the spec, before anything else.
+  Each item must be specific, testable, and scoped to this slice. Cover: core happy-path criterion,
+  key integration points, explicit deferred/out-of-scope acknowledgements, and the validation gate.
+  No vague items — every item must be checkable without further clarification.
+- Then present: core loop, must-build systems, stubbed/faked systems, out-of-scope items, validation goal.
+
 Behavior:
 - Use aggressive strip intensity.
 - Cut to the narrowest believable implementation surface.

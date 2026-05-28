@@ -1,7 +1,13 @@
-import { DocFile, HouseStyle, SectionInfo } from "./types.js";
+import { AnchorSource, DocFile, HouseStyle, SectionInfo } from "./types.js";
 export declare const DEFAULT_DOC_VERSION = "0.1.0";
 export declare function ensureDocsDir(docsDir: string): Promise<void>;
 export declare function loadDocs(docsDir: string): Promise<DocFile[]>;
+export interface RecursiveLoadOptions {
+    excludeDirs?: string[];
+    excludeFiles?: string[];
+    tagAnchorSource?: (relativePath: string) => AnchorSource | undefined;
+}
+export declare function loadDocsRecursive(docsDir: string, options?: RecursiveLoadOptions): Promise<DocFile[]>;
 export declare function loadDocFile(filePath: string): Promise<DocFile>;
 export declare function detectHouseStyle(docs: DocFile[]): HouseStyle;
 export declare function listSections(content: string): SectionInfo[];

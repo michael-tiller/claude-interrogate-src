@@ -11,6 +11,10 @@ import { designDocGenerate } from "./generate.js";
 import { designInterviewStart } from "./interview.js";
 import { designSummarize } from "./summarize.js";
 import { designCrossRefSync } from "./sync.js";
+import { loadRoadmapConfig } from "./roadmap-config.js";
+import { analyzeScope, generateScope } from "./scope.js";
+import { analyzeTaskout, generateTaskout } from "./taskout.js";
+import { ConfirmedScopePlan, ConfirmedTaskoutPlan, TaskoutMode } from "./types.js";
 
 const server = new Server(
   {
@@ -98,6 +102,67 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           style_template_path: { type: "string" }
         },
         required: ["concept", "docs_dir"]
+      }
+    },
+    {
+      name: "design_scope_start",
+      description:
+        "Analyze the docs set and seed a socratic roadmap interview. Returns concept-doc inventory, proposed release candidates, low-confidence DAG edges, drift summary (maintenance mode), and the question set.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          docs_dir: { type: "string" },
+          output_dir: { type: "string" },
+          style_template_path: { type: "string" },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["docs_dir", "output_dir"]
+      }
+    },
+    {
+      name: "design_scope_generate",
+      description:
+        "Write the project roadmap.md and per-RC stubs from a confirmed scope plan. Maintenance mode writes .draft.md siblings only.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          confirmed_plan: { type: "object" },
+          output_dir: { type: "string" },
+          mode: { type: "string", enum: ["bootstrap", "maintenance"] },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["confirmed_plan", "output_dir", "mode"]
+      }
+    },
+    {
+      name: "design_taskout_start",
+      description:
+        "Analyze a single release candidate and seed its socratic taskout interview. Returns mapped concept docs, sibling carried-from candidates, scanned tech-debt blockers, draft sections, and the question set.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          rc_id: { type: "string" },
+          docs_dir: { type: "string" },
+          output_dir: { type: "string" },
+          style_template_path: { type: "string" },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["rc_id", "docs_dir", "output_dir"]
+      }
+    },
+    {
+      name: "design_taskout_generate",
+      description:
+        "Write a per-RC file from a confirmed taskout plan. Bootstrap-rc writes the original file directly; maintenance writes a .draft.md sibling. Refuses to overwrite a Shipped RC's immutable fields without an explicit shipped-lock-bypass override.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          confirmed_plan: { type: "object" },
+          output_dir: { type: "string" },
+          mode: { type: "string", enum: ["bootstrap-rc", "maintenance"] },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["confirmed_plan", "output_dir", "mode"]
       }
     }
   ]
@@ -458,6 +523,55 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => ({
           required: false
         }
       ]
+    },
+    {
+      name: "roadmap",
+      description:
+        "Run the socratic scope/roadmap interview against the docs set and write roadmap.md plus per-RC stubs. Maintenance mode writes .draft.md siblings only.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to scope from (Concept/Plan/ADR subtrees)",
+          required: false
+        },
+        {
+          name: "output_dir",
+          description: "Project root where roadmap.md and Roadmap/ live (defaults to cwd)",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "taskout",
+      description:
+        "Run the socratic per-RC taskout interview. Refuses without an existing roadmap.md. Bootstrap-rc writes the original file; maintenance writes a .draft.md sibling.",
+      arguments: [
+        {
+          name: "rc_id",
+          description: "Release candidate id (e.g. 0_8_0_QUESTS)",
+          required: true
+        },
+        {
+          name: "docs_dir",
+          description: "Docs directory to scope from",
+          required: false
+        },
+        {
+          name: "output_dir",
+          description: "Project root containing roadmap.md and Roadmap/ (defaults to cwd)",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
     }
   ]
 }));
@@ -714,6 +828,41 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           }
         ]
       };
+    case "roadmap":
+      return {
+        description: "Run the socratic scope/roadmap interview and write artifacts after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: roadmapPrompt(
+                args?.docs_dir ? String(args.docs_dir) : undefined,
+                args?.output_dir ? String(args.output_dir) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
+    case "taskout":
+      return {
+        description: "Run the socratic per-RC taskout interview and write artifacts after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: taskoutPrompt(
+                String(args?.rc_id ?? ""),
+                args?.docs_dir ? String(args.docs_dir) : undefined,
+                args?.output_dir ? String(args.output_dir) : undefined,
+                args?.style_template_path ? String(args.style_template_path) : undefined
+              )
+            }
+          }
+        ]
+      };
     default:
       throw new Error(`Unknown prompt: ${name}`);
   }
@@ -783,6 +932,69 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       );
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_scope_start": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await analyzeScope({
+        docsDir: String(args?.docs_dir ?? ""),
+        outputDir,
+        styleTemplatePath: args?.style_template_path ? String(args.style_template_path) : undefined,
+        roadmapConfig: loaded.config,
+        configBaseDir: loaded.configBaseDir,
+        clock: () => new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_scope_generate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const plan = args?.confirmed_plan as ConfirmedScopePlan;
+      const mode = String(args?.mode ?? "bootstrap") as "bootstrap" | "maintenance";
+      const result = await generateScope({
+        plan,
+        outputDir,
+        mode,
+        roadmapConfig: loaded.config,
+        clock: () => new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify({ paths: result.paths }, null, 2) }]
+      };
+    }
+    case "design_taskout_start": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await analyzeTaskout({
+        rcId: String(args?.rc_id ?? ""),
+        docsDir: String(args?.docs_dir ?? ""),
+        outputDir,
+        styleTemplatePath: args?.style_template_path ? String(args.style_template_path) : undefined,
+        roadmapConfig: loaded.config,
+        configBaseDir: loaded.configBaseDir,
+        clock: () => new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_taskout_generate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const plan = args?.confirmed_plan as ConfirmedTaskoutPlan;
+      const mode = String(args?.mode ?? "bootstrap-rc") as TaskoutMode;
+      const result = await generateTaskout({
+        plan,
+        outputDir,
+        mode,
+        roadmapConfig: loaded.config,
+        clock: () => new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify({ path: result.path }, null, 2) }]
       };
     }
     default:
@@ -1265,6 +1477,72 @@ function redressPrompt(
     "10. If the user cancels, abandon the redress task entirely, ask no further redress questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "Focus on bringing the file up to the current local house style, not on reopening every design decision."
+  ].join("\n");
+}
+
+function roadmapPrompt(
+  docsDir?: string,
+  outputDir?: string,
+  styleTemplatePath?: string
+): string {
+  return [
+    `Run the socratic scope/roadmap interview for this project.`,
+    docsDir ? `Docs directory: "${docsDir}".` : `Docs directory: resolve from claude-interrogate.json or default to ./docs.`,
+    outputDir ? `Output directory: "${outputDir}".` : `Output directory: defaults to the current working directory.`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, cancel this task and continue with the new one.",
+    "1. Call `design_scope_start` with docs_dir, output_dir, and (if configured) style_template_path.",
+    "2. If the tool refuses with `no-concept-docs`, tell the user the project has no concept docs and point them to /interrogate <concept>. Stop.",
+    "3. Detect mode from the response. If `mode === 'maintenance'`, present the drift summary and run a focused interview on the gaps only. If `bootstrap`, run the full interview.",
+    "4. Keep the returned question set as a private working queue. Ask one question at a time in dependency order.",
+    "5. Interview the prerequisite DAG and marketing waypoints in parallel — every candidate edge needs the user to confirm direction (`blocks`, `depends-on`, or `parallel`) with a one-line reason.",
+    "6. For RCs that collide with reserved version slots, surface the collision and let the user pick rename, replace (recorded as a `reserved-slot-collision` override), or cancel.",
+    "7. Coverage gate before write: every concept doc is mapped to an RC or appendix'd with a reason; every RC has anchor + marketing-waypoint position (or 'none'); the confirmed DAG is acyclic. Surface gaps and re-interview until covered.",
+    "8. If existing roadmap rows include Shipped RCs and the confirmed plan changes their immutable fields (version, name, anchors, marketing waypoint), interview the user to authorize a `shipped-lock-bypass` override per RC, with a reason.",
+    "9. Present a concise findings summary and ask the user to choose: confirm, modify, deny, or cancel.",
+    "10. On confirm, assemble a typed `ConfirmedScopePlan` and call `design_scope_generate` with the detected mode. In maintenance mode the tool writes `roadmap.draft.md` and per-RC `*.draft.md` siblings — never the originals. Tell the user where the drafts landed and recommend they diff.",
+    "11. On modify, continue the interview. On deny, stop without writing. On cancel, abandon the task entirely and state that nothing was written.",
+    "",
+    "Behavior:",
+    "- Do not dump the whole question set to the user.",
+    "- Push on vague answers; the interview is the source of truth for the DAG, not the inferred candidates.",
+    "- If `design_scope_generate` refuses with `cycle-detected`, surface the cycle and interview the user to break it before re-attempting.",
+    "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
+  ].join("\n");
+}
+
+function taskoutPrompt(
+  rcId: string,
+  docsDir?: string,
+  outputDir?: string,
+  styleTemplatePath?: string
+): string {
+  return [
+    `Run the socratic per-RC taskout interview for "${rcId}".`,
+    docsDir ? `Docs directory: "${docsDir}".` : `Docs directory: resolve from claude-interrogate.json or default to ./docs.`,
+    outputDir ? `Output directory: "${outputDir}".` : `Output directory: defaults to the current working directory.`,
+    ...(styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : []),
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, cancel this task and continue with the new one.",
+    "1. Call `design_taskout_start` with the RC id, docs_dir, output_dir, and (if configured) style_template_path.",
+    "2. If the tool refuses with `no-roadmap`, tell the user to run /roadmap first. If `rc-not-in-index`, tell them to run /roadmap maintenance to add the RC to the index. Stop in either case.",
+    "3. The tool returns the detected mode (`bootstrap-rc` or `maintenance`). Use it verbatim when calling generate — do not override.",
+    "4. Walk the draft sections with the user in order: Theme, Goals, Targeted, Blockers & Dependencies, Definition of Done, References.",
+    "5. For Blockers & Dependencies: the tool surfaces upstream RCs, scanned tech-debt items (with `path:line` citations), and Carried-From items from sibling RCs. Confirm each and ask for any external blockers (pending ADRs, vendor decisions).",
+    "6. Coverage gate: every section has content; DoD has at least 3 testable assertions; References cites every doc named inline in Targeted.",
+    "7. If the RC's existing status is `Shipped` and the confirmed plan changes immutable fields (theme, goals, targeted, definitionOfDone, anchors, version, name, or removes a reference), interview the user for a `shipped-lock-bypass` override naming the changed fields and a reason.",
+    "8. Present a concise findings summary and ask the user to choose: confirm, modify, deny, or cancel.",
+    "9. On confirm, assemble a typed `ConfirmedTaskoutPlan` and call `design_taskout_generate` with the detected mode. Bootstrap-rc writes the original file; maintenance writes a `.draft.md` sibling. Tell the user where the file landed.",
+    "10. On modify, continue the interview. On deny, stop without writing. On cancel, abandon the task entirely.",
+    "",
+    "Behavior:",
+    "- Do not dump the whole question set to the user.",
+    "- Granularity inside Targeted is epic-level checklist items, not story-level tasks. Detailed task breakdowns belong in Plan/ docs.",
+    "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
+    "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");
 }
 

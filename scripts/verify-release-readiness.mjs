@@ -87,6 +87,86 @@ await assertExists(
   "runtime-dist/plugin/skills is missing. Rebuild the runtime payload before running release checks.",
 );
 
+const newCommandsAndSkills = [
+  {
+    sourcePath: path.join(root, "plugins", "claude-interrogate", "commands", "roadmap.md"),
+    runtimePath: path.join(runtimeRoot, "plugin", "commands", "roadmap.md"),
+    label: "/roadmap command",
+  },
+  {
+    sourcePath: path.join(root, "plugins", "claude-interrogate", "commands", "taskout.md"),
+    runtimePath: path.join(runtimeRoot, "plugin", "commands", "taskout.md"),
+    label: "/taskout command",
+  },
+  {
+    sourcePath: path.join(
+      root,
+      "plugins",
+      "claude-interrogate",
+      "skills",
+      "claude-interrogate-roadmap",
+      "SKILL.md",
+    ),
+    runtimePath: path.join(
+      runtimeRoot,
+      "plugin",
+      "skills",
+      "claude-interrogate-roadmap",
+      "SKILL.md",
+    ),
+    label: "Codex roadmap skill",
+  },
+  {
+    sourcePath: path.join(
+      root,
+      "plugins",
+      "claude-interrogate",
+      "skills",
+      "claude-interrogate-taskout",
+      "SKILL.md",
+    ),
+    runtimePath: path.join(
+      runtimeRoot,
+      "plugin",
+      "skills",
+      "claude-interrogate-taskout",
+      "SKILL.md",
+    ),
+    label: "Codex taskout skill",
+  },
+];
+
+for (const entry of newCommandsAndSkills) {
+  await assertExists(
+    entry.sourcePath,
+    `${entry.label} source is missing at ${entry.sourcePath}.`,
+  );
+  await assertExists(
+    entry.runtimePath,
+    `${entry.label} runtime payload is missing at ${entry.runtimePath}. Rebuild the runtime payload.`,
+  );
+}
+
+const runtimeReadmePath = path.join(runtimeRoot, "README.md");
+await assertExists(
+  runtimeReadmePath,
+  "runtime-dist/README.md is missing. Rebuild the runtime payload before running release checks.",
+);
+const runtimeReadme = await readFile(runtimeReadmePath, "utf8");
+const readmeTokens = [
+  "/claude-interrogate:roadmap",
+  "/claude-interrogate:taskout",
+  "claude-interrogate-roadmap",
+  "claude-interrogate-taskout",
+];
+for (const token of readmeTokens) {
+  if (!runtimeReadme.includes(token)) {
+    throw new Error(
+      `runtime-dist/README.md must mention "${token}". Update scripts/prepare-runtime-dist.mjs.`,
+    );
+  }
+}
+
 const sourceManifest = await readManifest(sourcePluginManifestPath);
 const runtimeManifest = await readManifest(runtimePluginManifestPath);
 const runtimeMarketplace = await readManifest(runtimeMarketplacePath);

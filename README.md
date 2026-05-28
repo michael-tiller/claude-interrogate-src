@@ -87,6 +87,7 @@ Codex note: Codex does not register new top-level `/...` slash commands from thi
   - `claude-interrogate-interrogate`
   - `claude-interrogate-audit-docs`
   - `claude-interrogate-sync-docs`
+  - `claude-interrogate-adr`
 
 To confirm the MCP server is attached in the current Codex session, run `/mcp`.
 
@@ -177,6 +178,7 @@ What works now:
   - `/summarize <concept> [docs-dir]`
   - `/audit-docs [docs-dir]`
   - `/sync-docs [docs-dir]`
+  - `/adr [title]`
 - Claude Code can use plugin-installed slash commands (namespaced); see the install section above.
 - Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace); see the install section above.
 - The tool surface is:

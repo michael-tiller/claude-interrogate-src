@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { DocFile, HouseStyle, SectionInfo } from "./types.js";
+import { AnchorSource, DocFile, HouseStyle, SectionInfo } from "./types.js";
 
 export const DEFAULT_DOC_VERSION = "0.1.0";
 const DEFAULT_PATCH_PLACEHOLDER = "- None.";
@@ -42,6 +42,108 @@ export async function loadDocs(docsDir: string): Promise<DocFile[]> {
       } satisfies DocFile;
     })
   );
+}
+
+export interface RecursiveLoadOptions {
+  excludeDirs?: string[];
+  excludeFiles?: string[];
+  tagAnchorSource?: (relativePath: string) => AnchorSource | undefined;
+}
+
+const DRAFT_SUFFIX = /\.draft\.md$/i;
+
+export async function loadDocsRecursive(
+  docsDir: string,
+  options: RecursiveLoadOptions = {}
+): Promise<DocFile[]> {
+  await ensureDocsDir(docsDir);
+  const rootAbs = path.resolve(docsDir);
+
+  const excludedDirs = new Set(
+    (options.excludeDirs ?? [])
+      .map((entry) => path.resolve(rootAbs, entry))
+      .filter((abs) => isUnderRoot(abs, rootAbs))
+      .map((abs) => normalizeForCompare(abs))
+  );
+  const excludedFiles = new Set(
+    (options.excludeFiles ?? [])
+      .map((entry) => path.resolve(rootAbs, entry))
+      .filter((abs) => isUnderRoot(abs, rootAbs))
+      .map((abs) => normalizeForCompare(abs))
+  );
+
+  const collected: DocFile[] = [];
+
+  async function walk(currentAbs: string): Promise<void> {
+    const entries = await readdir(currentAbs, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryAbs = path.join(currentAbs, entry.name);
+
+      if (entry.isDirectory()) {
+        if (excludedDirs.has(normalizeForCompare(entryAbs))) {
+          continue;
+        }
+        await walk(entryAbs);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      if (!entry.name.toLowerCase().endsWith(".md")) {
+        continue;
+      }
+
+      if (DRAFT_SUFFIX.test(entry.name)) {
+        continue;
+      }
+
+      if (excludedFiles.has(normalizeForCompare(entryAbs))) {
+        continue;
+      }
+
+      const relPath = path.relative(rootAbs, entryAbs);
+      const content = await readFile(entryAbs, "utf8");
+      const anchorSource = options.tagAnchorSource
+        ? options.tagAnchorSource(relPath)
+        : defaultAnchorSource(relPath);
+
+      collected.push({
+        path: entryAbs,
+        name: entry.name,
+        title: extractTitle(entry.name, content),
+        content,
+        anchorSource
+      });
+    }
+  }
+
+  await walk(rootAbs);
+
+  collected.sort((a, b) => a.path.localeCompare(b.path));
+
+  return collected;
+}
+
+function isUnderRoot(target: string, root: string): boolean {
+  const rel = path.relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function normalizeForCompare(absPath: string): string {
+  if (process.platform === "win32") {
+    return absPath.toLowerCase();
+  }
+  return absPath;
+}
+
+function defaultAnchorSource(relPath: string): AnchorSource | undefined {
+  const firstSegment = relPath.split(/[\\/]/, 1)[0];
+  if (!firstSegment) {
+    return undefined;
+  }
+  return firstSegment;
 }
 
 export async function loadDocFile(filePath: string): Promise<DocFile> {

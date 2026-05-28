@@ -17,6 +17,21 @@ The user invoked this command with: $ARGUMENTS
 5. Prefer the MCP prompt `/mcp__claude_interrogate__distill <concept> <docs-dir>` with `intensity="aggressive"`.
 6. Treat the distilled spec as a separate living artifact derived from the real spec, not a replacement for it.
 
+## Output Structure
+
+Produce the distilled spec in this order:
+
+1. **Definition of Done** — a `- [ ]` checklist placed at the top of the spec, before anything else.
+   Each item must be specific, testable, and scoped to this exploration slice only.
+   Cover: core happy-path criterion, key integration points, explicit deferred/out-of-scope acknowledgements, and the validation gate.
+   No vague items ("works correctly") — every item must be checkable by the implementer without further clarification.
+
+2. Core loop
+3. Must-build systems
+4. Stubbed/faked systems
+5. Out-of-scope items
+6. Validation goal
+
 ## Behavior
 
 - Use aggressive strip intensity.

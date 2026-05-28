@@ -4,6 +4,7 @@ import path from "node:path";
 export interface InterrogateConfig {
   docsDir?: string;
   styleTemplate?: string;
+  roadmap?: Record<string, unknown>;
 }
 
 const CONFIG_CANDIDATES = ["claude-interrogate.json", ".claude-interrogate.json"];

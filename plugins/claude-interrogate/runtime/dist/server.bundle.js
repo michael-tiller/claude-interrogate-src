@@ -3223,8 +3223,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input = path7;
+    function removeDotSegments(path13) {
+      let input = path13;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3423,8 +3423,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path7, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const [path13, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -7158,8 +7158,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path7, errorMaps, issueData } = params;
-  const fullPath = [...path7, ...issueData.path || []];
+  const { data, path: path13, errorMaps, issueData } = params;
+  const fullPath = [...path13, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7274,11 +7274,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path7, key) {
+  constructor(parent, value, path13, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path7;
+    this._path = path13;
     this._key = key;
   }
   get path() {
@@ -10922,10 +10922,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path13) {
+  if (!path13)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path13.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11308,11 +11308,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path13, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path13);
     return iss;
   });
 }
@@ -20865,6 +20865,69 @@ async function loadDocs(docsDir) {
     };
   }));
 }
+var DRAFT_SUFFIX = /\.draft\.md$/i;
+async function loadDocsRecursive(docsDir, options = {}) {
+  await ensureDocsDir(docsDir);
+  const rootAbs = path.resolve(docsDir);
+  const excludedDirs = new Set((options.excludeDirs ?? []).map((entry) => path.resolve(rootAbs, entry)).filter((abs) => isUnderRoot(abs, rootAbs)).map((abs) => normalizeForCompare(abs)));
+  const excludedFiles = new Set((options.excludeFiles ?? []).map((entry) => path.resolve(rootAbs, entry)).filter((abs) => isUnderRoot(abs, rootAbs)).map((abs) => normalizeForCompare(abs)));
+  const collected = [];
+  async function walk(currentAbs) {
+    const entries = await readdir(currentAbs, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryAbs = path.join(currentAbs, entry.name);
+      if (entry.isDirectory()) {
+        if (excludedDirs.has(normalizeForCompare(entryAbs))) {
+          continue;
+        }
+        await walk(entryAbs);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      if (!entry.name.toLowerCase().endsWith(".md")) {
+        continue;
+      }
+      if (DRAFT_SUFFIX.test(entry.name)) {
+        continue;
+      }
+      if (excludedFiles.has(normalizeForCompare(entryAbs))) {
+        continue;
+      }
+      const relPath = path.relative(rootAbs, entryAbs);
+      const content = await readFile(entryAbs, "utf8");
+      const anchorSource = options.tagAnchorSource ? options.tagAnchorSource(relPath) : defaultAnchorSource(relPath);
+      collected.push({
+        path: entryAbs,
+        name: entry.name,
+        title: extractTitle(entry.name, content),
+        content,
+        anchorSource
+      });
+    }
+  }
+  await walk(rootAbs);
+  collected.sort((a, b) => a.path.localeCompare(b.path));
+  return collected;
+}
+function isUnderRoot(target, root) {
+  const rel = path.relative(root, target);
+  return rel === "" || !rel.startsWith("..") && !path.isAbsolute(rel);
+}
+function normalizeForCompare(absPath) {
+  if (process.platform === "win32") {
+    return absPath.toLowerCase();
+  }
+  return absPath;
+}
+function defaultAnchorSource(relPath) {
+  const firstSegment = relPath.split(/[\\/]/, 1)[0];
+  if (!firstSegment) {
+    return void 0;
+  }
+  return firstSegment;
+}
 async function loadDocFile(filePath) {
   const content = await readFile(filePath, "utf8");
   return {
@@ -21937,6 +22000,1614 @@ function equalsIgnoreCase(a, b) {
   return a.toLowerCase() === b.toLowerCase();
 }
 
+// dist/roadmap-config.js
+import path9 from "node:path";
+
+// dist/config.js
+import { readFile as readFile3 } from "node:fs/promises";
+import path7 from "node:path";
+var CONFIG_CANDIDATES = ["claude-interrogate.json", ".claude-interrogate.json"];
+async function loadInterrogateConfig(cwd) {
+  for (const candidate of CONFIG_CANDIDATES) {
+    const candidatePath = path7.join(cwd, candidate);
+    try {
+      const raw = await readFile3(candidatePath, "utf8");
+      const parsed = JSON.parse(raw);
+      return {
+        path: candidatePath,
+        config: parsed && typeof parsed === "object" ? parsed : {}
+      };
+    } catch {
+      continue;
+    }
+  }
+  return {
+    path: null,
+    config: {}
+  };
+}
+
+// dist/path-safety.js
+import path8 from "node:path";
+import { realpath } from "node:fs/promises";
+var RC_ID_PATTERN = /^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$/;
+var RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+var REQUIRED_PLACEHOLDERS = ["{major}", "{minor}", "{patch}", "{NAME}"];
+var KNOWN_PLACEHOLDERS = /* @__PURE__ */ new Set(["{major}", "{minor}", "{patch}", "{NAME}"]);
+var PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
+var PathSafetyError = class extends Error {
+  field;
+  constructor(field, message) {
+    super(`${field}: ${message}`);
+    this.field = field;
+    this.name = "PathSafetyError";
+  }
+};
+function validateRelativePath(input, field) {
+  if (typeof input !== "string" || input.length === 0) {
+    throw new PathSafetyError(field, "must be a non-empty string");
+  }
+  if (path8.isAbsolute(input)) {
+    throw new PathSafetyError(field, `must be relative, got absolute path: ${input}`);
+  }
+  if (/^[A-Za-z]:[\\/]/.test(input)) {
+    throw new PathSafetyError(field, `must not contain a drive letter: ${input}`);
+  }
+  const normalized = input.replace(/\\/g, "/");
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+  if (segments.length === 0) {
+    throw new PathSafetyError(field, "must contain at least one path segment");
+  }
+  for (const segment of segments) {
+    if (segment === "..") {
+      throw new PathSafetyError(field, `must not contain parent traversal (..): ${input}`);
+    }
+    if (segment === ".") {
+      throw new PathSafetyError(field, `must not contain current-dir segments (.): ${input}`);
+    }
+  }
+  return segments.join("/");
+}
+function validateRCId(id) {
+  if (typeof id !== "string" || !RC_ID_PATTERN.test(id)) {
+    throw new PathSafetyError("rc.id", `must match ^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. 0_8_0_QUESTS), got: ${id}`);
+  }
+}
+function validateRCName(name) {
+  if (typeof name !== "string" || !RC_NAME_PATTERN.test(name)) {
+    throw new PathSafetyError("rc.name", `must match ^[A-Z][A-Z0-9_]*$ (uppercase letters/digits/underscore, leading letter), got: ${name}`);
+  }
+}
+function validateNamingScheme(template) {
+  if (typeof template !== "string" || template.length === 0) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", "must be a non-empty string");
+  }
+  for (const required2 of REQUIRED_PLACEHOLDERS) {
+    if (!template.includes(required2)) {
+      throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder ${required2}, got: ${template}`);
+    }
+  }
+  const found = template.match(PLACEHOLDER_PATTERN) ?? [];
+  for (const placeholder of found) {
+    if (!KNOWN_PLACEHOLDERS.has(placeholder)) {
+      throw new PathSafetyError("roadmap.rcNamingScheme", `unknown placeholder ${placeholder} (allowed: ${[...KNOWN_PLACEHOLDERS].join(", ")})`);
+    }
+  }
+  if (!template.endsWith(".md")) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `must end in .md, got: ${template}`);
+  }
+  const withoutPlaceholders = template.replace(PLACEHOLDER_PATTERN, "X");
+  if (/[\\/]/.test(withoutPlaceholders)) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `literal text must not contain path separators, got: ${template}`);
+  }
+  if (withoutPlaceholders.startsWith(".")) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `literal text must not begin with '.', got: ${template}`);
+  }
+  if (withoutPlaceholders.includes("..")) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `literal text must not contain '..', got: ${template}`);
+  }
+}
+function renderRCFilename(template, meta3) {
+  validateNamingScheme(template);
+  const semverMatch = meta3.version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!semverMatch) {
+    throw new PathSafetyError("rc.version", `must be MAJOR.MINOR.PATCH SemVer, got: ${meta3.version}`);
+  }
+  validateRCName(meta3.name);
+  const rendered = template.replace(/\{major\}/g, semverMatch[1]).replace(/\{minor\}/g, semverMatch[2]).replace(/\{patch\}/g, semverMatch[3]).replace(/\{NAME\}/g, meta3.name);
+  validateRelativePath(rendered, "renderedRCFilename");
+  if (/[\\/]/.test(rendered)) {
+    throw new PathSafetyError("renderedRCFilename", `rendered filename must not contain path separators, got: ${rendered}`);
+  }
+  return rendered;
+}
+async function canonicalize(target) {
+  try {
+    return await realpath(target);
+  } catch {
+    const parent = path8.dirname(target);
+    if (parent === target) {
+      return path8.resolve(target);
+    }
+    try {
+      const realParent = await realpath(parent);
+      return path8.resolve(realParent, path8.basename(target));
+    } catch {
+      return path8.resolve(target);
+    }
+  }
+}
+async function assertWithinDir(targetPath, allowedBase) {
+  const resolvedBase = await canonicalize(path8.resolve(allowedBase));
+  const resolvedTarget = await canonicalize(path8.resolve(targetPath));
+  const rel = path8.relative(resolvedBase, resolvedTarget);
+  if (rel === "") {
+    return;
+  }
+  if (path8.isAbsolute(rel)) {
+    throw new PathSafetyError("outputPath", `target escapes allowed base (different root): base=${resolvedBase} target=${resolvedTarget}`);
+  }
+  const firstSegment = rel.split(/[\\/]/, 1)[0];
+  if (firstSegment === "..") {
+    throw new PathSafetyError("outputPath", `target escapes allowed base: base=${resolvedBase} target=${resolvedTarget}`);
+  }
+}
+
+// dist/roadmap-config.js
+var SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
+var DEFAULT_ROADMAP_CONFIG = Object.freeze({
+  indexFile: "roadmap.md",
+  rcDir: "Roadmap",
+  rcNamingScheme: "{major}_{minor}_{patch}_{NAME}.md",
+  techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
+  reservedSlots: [
+    { version: "0.95.0", purpose: "Showcase / optional content project" },
+    { version: "0.98.0", purpose: "Stretch / optional feature" },
+    { version: "0.99.0", purpose: "Late-stage polish" },
+    { version: "1.0.0", purpose: "Release readiness" }
+  ],
+  marketingWaypoints: ["Wishlist", "Early Access", "Launch"],
+  anchorSources: ["Concept", "Plan", "ADR"]
+});
+var RoadmapConfigError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "RoadmapConfigError";
+  }
+};
+function applyRoadmapConfigDefaults(partial2) {
+  const source = partial2 ?? {};
+  const merged = {
+    indexFile: source.indexFile ?? DEFAULT_ROADMAP_CONFIG.indexFile,
+    rcDir: source.rcDir ?? DEFAULT_ROADMAP_CONFIG.rcDir,
+    rcNamingScheme: source.rcNamingScheme ?? DEFAULT_ROADMAP_CONFIG.rcNamingScheme,
+    techDebtFile: source.techDebtFile === void 0 ? DEFAULT_ROADMAP_CONFIG.techDebtFile : source.techDebtFile,
+    reservedSlots: source.reservedSlots ?? [...DEFAULT_ROADMAP_CONFIG.reservedSlots],
+    marketingWaypoints: source.marketingWaypoints ?? [...DEFAULT_ROADMAP_CONFIG.marketingWaypoints],
+    anchorSources: source.anchorSources ?? [...DEFAULT_ROADMAP_CONFIG.anchorSources]
+  };
+  validateRoadmapConfig(merged);
+  return merged;
+}
+function validateRoadmapConfig(config2) {
+  try {
+    validateRelativePath(config2.indexFile, "roadmap.indexFile");
+    validateRelativePath(config2.rcDir, "roadmap.rcDir");
+    if (config2.techDebtFile !== null) {
+      validateRelativePath(config2.techDebtFile, "roadmap.techDebtFile");
+    }
+    validateNamingScheme(config2.rcNamingScheme);
+  } catch (error2) {
+    if (error2 instanceof PathSafetyError) {
+      throw new RoadmapConfigError(error2.message);
+    }
+    throw error2;
+  }
+  if (!Array.isArray(config2.reservedSlots)) {
+    throw new RoadmapConfigError("roadmap.reservedSlots: must be an array");
+  }
+  const seenVersions = /* @__PURE__ */ new Set();
+  for (const slot of config2.reservedSlots) {
+    if (!slot || typeof slot !== "object") {
+      throw new RoadmapConfigError("roadmap.reservedSlots: each entry must be an object");
+    }
+    if (typeof slot.version !== "string" || !SEMVER_PATTERN.test(slot.version)) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: invalid SemVer version: ${String(slot.version)}`);
+    }
+    if (typeof slot.purpose !== "string" || slot.purpose.length === 0) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: purpose must be a non-empty string for version ${slot.version}`);
+    }
+    if (seenVersions.has(slot.version)) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: duplicate version ${slot.version}`);
+    }
+    seenVersions.add(slot.version);
+  }
+  if (!Array.isArray(config2.marketingWaypoints)) {
+    throw new RoadmapConfigError("roadmap.marketingWaypoints: must be an array");
+  }
+  for (const waypoint of config2.marketingWaypoints) {
+    if (typeof waypoint !== "string" || waypoint.length === 0) {
+      throw new RoadmapConfigError("roadmap.marketingWaypoints: each entry must be a non-empty string");
+    }
+  }
+  if (!Array.isArray(config2.anchorSources)) {
+    throw new RoadmapConfigError("roadmap.anchorSources: must be an array");
+  }
+  for (const source of config2.anchorSources) {
+    if (typeof source !== "string" || source.length === 0) {
+      throw new RoadmapConfigError("roadmap.anchorSources: each entry must be a non-empty string");
+    }
+  }
+}
+async function loadRoadmapConfig(cwd) {
+  const { config: raw, path: configPath } = await loadInterrogateConfig(cwd);
+  const config2 = applyRoadmapConfigDefaults(raw.roadmap);
+  return {
+    config: config2,
+    configBaseDir: configPath ? path9.dirname(configPath) : cwd,
+    configPath
+  };
+}
+
+// dist/scope.js
+import { mkdir as mkdir2, stat as stat3, writeFile as writeFile3 } from "node:fs/promises";
+import path11 from "node:path";
+
+// dist/roadmap-parse.js
+import { readFile as readFile4, stat as stat2 } from "node:fs/promises";
+import path10 from "node:path";
+var SECTION_ALIASES = {
+  thesis: ["1.0 thesis", "thesis"],
+  minPlay: ["min play waypoint", "min play"],
+  releaseCandidates: ["release candidates", "rcs"],
+  prerequisiteChain: ["prerequisite chain", "prerequisites", "dependency chain"],
+  marketingWaypoints: ["marketing waypoints", "waypoints"],
+  unmappedConcepts: ["unmapped concepts", "unmapped"],
+  definitionOfDone: ["definition of done", "dod"],
+  theme: ["theme"],
+  goals: ["goals"],
+  targeted: ["targeted"],
+  blockers: ["blockers & dependencies", "blockers and dependencies", "blockers"],
+  references: ["references"],
+  outOfScope: ["out of scope", "out-of-scope", "outofscope"]
+};
+var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
+var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
+var BULLET_PATTERN = /^- (.+)$/;
+var STATUS_PATTERN = /^Status:\s+(.+)$/m;
+var LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
+var RC_HEADER_PATTERN = /^#\s+.*v(\d+\.\d+\.\d+)\s+—\s+(.+?)\s*$/m;
+var BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
+var SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
+var TABLE_DIVIDER_PATTERN = /^\s*\|?\s*:?-{2,}.*$/;
+async function parseRoadmapIndex(absolutePath) {
+  if (!await fileExists(absolutePath)) {
+    return null;
+  }
+  const raw = await readFile4(absolutePath, "utf8");
+  const sections = collectSections(raw);
+  return {
+    thesis: parseThesis(sections),
+    minPlayWaypoint: parseMinPlay(sections),
+    rcRows: parseReleaseCandidates(sections),
+    prerequisiteChain: parsePrerequisiteChain(sections),
+    marketingWaypoints: parseMarketingWaypoints(sections),
+    unmappedConcepts: parseUnmappedConcepts(sections),
+    raw
+  };
+}
+async function parseRCFile(absolutePath) {
+  if (!await fileExists(absolutePath)) {
+    return null;
+  }
+  const raw = await readFile4(absolutePath, "utf8");
+  const sections = collectSections(raw);
+  const headerMatch = raw.match(RC_HEADER_PATTERN);
+  const version2 = headerMatch?.[1] ?? "";
+  const rawName = headerMatch?.[2] ?? path10.basename(absolutePath, ".md");
+  const name = normalizeRCNameFromHeader(rawName);
+  const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
+  const lastUpdated = raw.match(LAST_UPDATED_PATTERN)?.[1]?.trim();
+  return {
+    path: absolutePath,
+    version: version2,
+    name,
+    status,
+    lastUpdated,
+    theme: getSectionBody2(sections, "theme")?.trim() || void 0,
+    goals: collectBullets(getSectionBody2(sections, "goals")),
+    targeted: parseTargeted(sections),
+    blockersAndDeps: parseBlockers(getSectionBody2(sections, "blockers")),
+    definitionOfDone: collectChecklistItems(getSectionBody2(sections, "definitionOfDone")),
+    references: collectBullets(getSectionBody2(sections, "references")),
+    raw
+  };
+}
+async function parseTechDebt(absolutePath) {
+  if (!await fileExists(absolutePath)) {
+    return null;
+  }
+  const raw = await readFile4(absolutePath, "utf8");
+  const lines = raw.split(/\r?\n/);
+  const items = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const checkbox = line.match(CHECKBOX_PATTERN);
+    if (!checkbox) {
+      continue;
+    }
+    const body = checkbox[2];
+    const blocksMatch = body.match(BLOCKS_TAG_PATTERN);
+    const severityMatch = body.match(SEVERITY_TAG_PATTERN);
+    const blocks = blocksMatch ? blocksMatch[1].split(",").map((id) => id.trim()).filter(Boolean) : [];
+    items.push({
+      text: body.trim(),
+      blocks,
+      severity: severityMatch?.[1],
+      sourceLine: i + 1
+    });
+  }
+  return { path: absolutePath, items };
+}
+function collectSections(raw) {
+  const lines = raw.split(/\r?\n/);
+  const byKey = /* @__PURE__ */ new Map();
+  let currentKey = null;
+  let currentLevel = 0;
+  let buffer = [];
+  const flush = () => {
+    if (currentKey !== null) {
+      byKey.set(currentKey, buffer.join("\n").trim());
+    }
+    buffer = [];
+  };
+  for (const line of lines) {
+    const headingMatch = line.match(HEADING_PATTERN);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      if (level === 1) {
+        flush();
+        currentKey = null;
+        currentLevel = 0;
+        continue;
+      }
+      if (currentKey === null || level <= currentLevel) {
+        flush();
+        currentKey = resolveSectionKey(headingMatch[2]);
+        currentLevel = level;
+        continue;
+      }
+      buffer.push(line);
+      continue;
+    }
+    if (currentKey !== null) {
+      buffer.push(line);
+    }
+  }
+  flush();
+  return { byKey, raw };
+}
+function resolveSectionKey(heading) {
+  const normalized = heading.toLowerCase().trim();
+  for (const [key, aliases] of Object.entries(SECTION_ALIASES)) {
+    if (aliases.includes(normalized)) {
+      return key;
+    }
+  }
+  return `__${normalized}`;
+}
+function getSectionBody2(sections, key) {
+  return sections.byKey.get(key);
+}
+function parseThesis(sections) {
+  const body = getSectionBody2(sections, "thesis");
+  if (!body) {
+    return null;
+  }
+  const anchorMatch = body.match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
+  return { text: body.trim(), anchorDoc: anchorMatch?.[2] };
+}
+function parseMinPlay(sections) {
+  const body = getSectionBody2(sections, "minPlay");
+  if (!body) {
+    return null;
+  }
+  const rcMatch = body.match(/RC:\s*([A-Z0-9_]+)/i);
+  const criterionMatch = body.match(/Criterion:\s*(.+)/i);
+  if (!rcMatch) {
+    return null;
+  }
+  return { rcId: rcMatch[1], criterion: criterionMatch?.[1]?.trim() ?? "" };
+}
+function parseReleaseCandidates(sections) {
+  const body = getSectionBody2(sections, "releaseCandidates");
+  if (!body) {
+    return [];
+  }
+  const rows = [];
+  const lines = body.split(/\r?\n/);
+  let inTable = false;
+  let columnIndex = {};
+  for (const line of lines) {
+    if (!line.trim().startsWith("|")) {
+      inTable = false;
+      continue;
+    }
+    if (TABLE_DIVIDER_PATTERN.test(line)) {
+      inTable = true;
+      continue;
+    }
+    const cells = parseTableRow(line);
+    if (!inTable) {
+      cells.forEach((cell, idx) => {
+        columnIndex[cell.toLowerCase()] = idx;
+      });
+      continue;
+    }
+    const version2 = cells[columnIndex.version] ?? "";
+    if (!/^\d+\.\d+\.\d+$/.test(version2)) {
+      continue;
+    }
+    rows.push({
+      version: version2,
+      name: cells[columnIndex.name] ?? "",
+      status: cells[columnIndex.status] ?? "",
+      anchor: cells[columnIndex.anchor],
+      marketing: cells[columnIndex.marketing]
+    });
+  }
+  return rows;
+}
+function parseTableRow(line) {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+function parsePrerequisiteChain(sections) {
+  const body = getSectionBody2(sections, "prerequisiteChain");
+  if (!body) {
+    return [];
+  }
+  const edges = [];
+  for (const line of body.split(/\r?\n/)) {
+    const bullet = line.match(BULLET_PATTERN);
+    if (!bullet) {
+      continue;
+    }
+    const arrow = bullet[1].match(/^([A-Za-z0-9_]+)\s*(?:→|->)\s*([A-Za-z0-9_]+)\s*(?:\((.+)\))?/);
+    if (arrow) {
+      edges.push({ from: arrow[1], to: arrow[2], reason: arrow[3]?.trim() });
+    }
+  }
+  return edges;
+}
+function parseMarketingWaypoints(sections) {
+  const body = getSectionBody2(sections, "marketingWaypoints");
+  if (!body) {
+    return [];
+  }
+  const waypoints = [];
+  for (const line of body.split(/\r?\n/)) {
+    const bullet = line.match(/^- \*\*([^*]+)\*\*:\s*(.+)$/);
+    if (!bullet) {
+      continue;
+    }
+    const name = bullet[1].trim();
+    const rest = bullet[2].trim();
+    const rcMatch = rest.match(/(?:after|at|target(?:\s+at)?)\s+([A-Za-z0-9_\.]+)/i);
+    const rationaleMatch = rest.match(/Rationale:\s*(.+)$/i);
+    waypoints.push({
+      name,
+      targetRC: rcMatch?.[1],
+      rationale: rationaleMatch?.[1]?.trim()
+    });
+  }
+  return waypoints;
+}
+function parseUnmappedConcepts(sections) {
+  const body = getSectionBody2(sections, "unmappedConcepts");
+  if (!body) {
+    return [];
+  }
+  const items = [];
+  for (const line of body.split(/\r?\n/)) {
+    const bullet = line.match(/^- `([^`]+)`(?:\s*—\s*(.+))?$/);
+    if (!bullet) {
+      continue;
+    }
+    items.push({ docPath: bullet[1], reason: bullet[2]?.trim() });
+  }
+  return items;
+}
+function normalizeRCNameFromHeader(raw) {
+  return raw.trim().toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, "");
+}
+function collectBullets(body) {
+  if (!body) {
+    return [];
+  }
+  const bullets = [];
+  for (const line of body.split(/\r?\n/)) {
+    const match = line.match(/^- (.+)$/);
+    if (match) {
+      bullets.push(match[1].trim());
+    }
+  }
+  return bullets;
+}
+function collectChecklistItems(body) {
+  if (!body) {
+    return [];
+  }
+  const items = [];
+  for (const line of body.split(/\r?\n/)) {
+    const match = line.match(CHECKBOX_PATTERN);
+    if (match) {
+      items.push(match[2].trim());
+    }
+  }
+  return items;
+}
+function parseTargeted(sections) {
+  const body = getSectionBody2(sections, "targeted");
+  if (!body) {
+    return [];
+  }
+  const lines = body.split(/\r?\n/);
+  const subsections = [];
+  let current = null;
+  for (const line of lines) {
+    const heading = line.match(/^###\s+(.+?)\s*$/);
+    if (heading) {
+      if (current) {
+        subsections.push(current);
+      }
+      current = { heading: heading[1].trim(), items: [] };
+      continue;
+    }
+    const checkbox = line.match(CHECKBOX_PATTERN);
+    if (checkbox && current) {
+      const checked = checkbox[1].toLowerCase() === "x";
+      current.items.push({ text: checkbox[2].trim(), checked });
+    }
+  }
+  if (current) {
+    subsections.push(current);
+  }
+  return subsections;
+}
+function parseBlockers(body) {
+  if (!body) {
+    return [];
+  }
+  const entries = [];
+  for (const line of body.split(/\r?\n/)) {
+    const match = line.match(/^- \*\*([^*]+)\*\*:\s*(.+)$/);
+    if (!match) {
+      continue;
+    }
+    const kindRaw = match[1].trim();
+    const item = match[2].trim();
+    const kind = normalizeBlockerKind(kindRaw);
+    if (!kind) {
+      continue;
+    }
+    const sourceMatch = item.match(/`([^`]+):(\d+)`/);
+    entries.push({
+      kind,
+      item,
+      sourcePath: sourceMatch?.[1],
+      sourceLine: sourceMatch ? Number(sourceMatch[2]) : void 0
+    });
+  }
+  return entries;
+}
+function normalizeBlockerKind(raw) {
+  const lower = raw.toLowerCase();
+  if (lower === "upstream rc" || lower === "upstream")
+    return "Upstream RC";
+  if (lower === "tech debt" || lower === "technical debt")
+    return "Tech Debt";
+  if (lower === "external")
+    return "External";
+  return null;
+}
+async function fileExists(target) {
+  try {
+    const info = await stat2(target);
+    return info.isFile();
+  } catch {
+    return false;
+  }
+}
+
+// dist/scope.js
+var ScopeError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "ScopeError";
+  }
+};
+async function analyzeScope(input) {
+  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const docsExclusions = resolveDocsExclusions(input);
+  const docs = await loadDocsRecursive(input.docsDir, {
+    excludeDirs: docsExclusions.dirs,
+    excludeFiles: docsExclusions.files
+  });
+  if (docs.length === 0) {
+    throw new ScopeError("no-concept-docs", `Roadmap needs concept docs to scope from. Found none under ${input.docsDir}. Run /interrogate <concept> for each major feature first.`);
+  }
+  const conceptDocs = docs.map(toConceptDocSummary);
+  const conceptByPath = new Map(conceptDocs.map((c) => [c.path, c]));
+  const existingIndex = await parseRoadmapIndex(indexAbs);
+  const mode = existingIndex ? "maintenance" : "bootstrap";
+  const proposedRCs = mode === "maintenance" && existingIndex ? await proposeRCsFromExisting(existingIndex, rcDirAbs, input.roadmapConfig, conceptByPath) : proposeRCsFromConcepts(conceptDocs);
+  const dagCandidates = inferDAGCandidates(docs, proposedRCs);
+  let driftSummary;
+  if (mode === "maintenance" && existingIndex) {
+    driftSummary = await computeDriftSummary({
+      existingIndex,
+      rcDirAbs,
+      conceptDocs,
+      proposedRCs,
+      dagCandidates,
+      roadmapConfig: input.roadmapConfig
+    });
+  }
+  const questions = buildScopeQuestions(mode, proposedRCs, dagCandidates);
+  return {
+    docsDir: input.docsDir,
+    outputDir: input.outputDir,
+    styleTemplatePath: input.styleTemplatePath,
+    roadmapConfig: input.roadmapConfig,
+    mode,
+    conceptDocs,
+    proposedRCs,
+    dagCandidates,
+    driftSummary,
+    questions
+  };
+}
+async function generateScope(input) {
+  validateScopePlan(input.plan);
+  const cycles = detectCycles(input.plan.edges.map((edge) => ({ from: edge.from, to: edge.to })));
+  if (cycles.length > 0) {
+    throw new ScopeError("cycle-detected", `DAG contains cycles; refusing to write. Cycles: ${cycles.map((c) => c.join(" -> ")).join("; ")}`);
+  }
+  if (input.mode === "maintenance") {
+    await enforceShippedScopeLock(input);
+  }
+  const today = formatIsoDate((input.clock ?? (() => /* @__PURE__ */ new Date()))());
+  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const indexTarget = input.mode === "maintenance" ? withDraftSuffix(indexAbs) : indexAbs;
+  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  await assertWithinDir(indexTarget, input.outputDir);
+  await mkdir2(path11.dirname(indexTarget), { recursive: true });
+  const indexContent = renderRoadmapIndex(input.plan, today, input.roadmapConfig);
+  await writeFile3(indexTarget, indexContent, "utf8");
+  const rcOutputs = [];
+  await mkdir2(rcDirAbs, { recursive: true });
+  for (const rc of input.plan.rcs) {
+    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+      version: rc.version,
+      name: rc.name
+    });
+    const rcAbs = path11.resolve(rcDirAbs, filename);
+    const rcTarget = input.mode === "maintenance" ? withDraftSuffix(rcAbs) : rcAbs;
+    await assertWithinDir(rcTarget, rcDirAbs);
+    const existingRC = input.mode === "maintenance" ? await parseRCFile(rcAbs) : null;
+    const stubContent = renderRCStub(rc, today, input.plan, existingRC);
+    await writeFile3(rcTarget, stubContent, "utf8");
+    rcOutputs.push({ path: rcTarget, content: stubContent });
+  }
+  const paths = [indexTarget, ...rcOutputs.map((rc) => rc.path)];
+  return {
+    paths,
+    content: {
+      indexPath: indexTarget,
+      indexContent,
+      rcs: rcOutputs
+    }
+  };
+}
+function detectCycles(edges) {
+  const adj = /* @__PURE__ */ new Map();
+  for (const edge of edges) {
+    if (!adj.has(edge.from))
+      adj.set(edge.from, []);
+    adj.get(edge.from).push(edge.to);
+    if (!adj.has(edge.to))
+      adj.set(edge.to, []);
+  }
+  const cycles = [];
+  const visiting = /* @__PURE__ */ new Set();
+  const visited = /* @__PURE__ */ new Set();
+  const stack = [];
+  function dfs(node) {
+    if (visited.has(node))
+      return;
+    if (visiting.has(node)) {
+      const start = stack.indexOf(node);
+      if (start !== -1) {
+        cycles.push([...stack.slice(start), node]);
+      }
+      return;
+    }
+    visiting.add(node);
+    stack.push(node);
+    for (const next of adj.get(node) ?? []) {
+      dfs(next);
+    }
+    stack.pop();
+    visiting.delete(node);
+    visited.add(node);
+  }
+  for (const node of adj.keys()) {
+    dfs(node);
+  }
+  return cycles;
+}
+function validateScopePlan(plan) {
+  for (const rc of plan.rcs) {
+    if (!rc.id || !rc.version || !rc.name) {
+      throw new ScopeError("invalid-rc", `RC missing required fields: ${JSON.stringify(rc)}`);
+    }
+  }
+  const ids = /* @__PURE__ */ new Set();
+  for (const rc of plan.rcs) {
+    if (ids.has(rc.id)) {
+      throw new ScopeError("duplicate-rc-id", `Duplicate RC id: ${rc.id}`);
+    }
+    ids.add(rc.id);
+  }
+  for (const edge of plan.edges) {
+    if (!ids.has(edge.from) || !ids.has(edge.to)) {
+      throw new ScopeError("edge-references-unknown-rc", `Edge references unknown RC: ${edge.from} -> ${edge.to}`);
+    }
+  }
+}
+async function enforceShippedScopeLock(input) {
+  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const existingIndex = await parseRoadmapIndex(indexAbs);
+  if (!existingIndex)
+    return;
+  const overridesByRC = indexOverrides(input.plan.overrides);
+  for (const row of existingIndex.rcRows) {
+    if (row.status.toLowerCase() !== "shipped")
+      continue;
+    const existingId = `${row.version.replace(/\./g, "_")}_${row.name}`;
+    const proposed = input.plan.rcs.find((rc) => rc.id === existingId || rc.version === row.version && rc.name === row.name);
+    if (!proposed)
+      continue;
+    const changed = [];
+    if (proposed.version !== row.version)
+      changed.push("version");
+    if (proposed.name !== row.name)
+      changed.push("name");
+    if (proposed.marketingWaypoint !== row.marketing && row.marketing !== "\u2014") {
+      changed.push("marketing-waypoint");
+    }
+    const anchorString = proposed.anchors.map((a) => a.path ?? a.kind).join(",");
+    if (row.anchor && row.anchor !== "\u2014" && row.anchor !== anchorString) {
+      changed.push("anchors");
+    }
+    if (changed.length === 0)
+      continue;
+    const override = overridesByRC.get(proposed.id);
+    const granted = new Set(override?.changedFields ?? []);
+    const ungranted = changed.filter((field) => !granted.has(field));
+    if (ungranted.length > 0) {
+      throw new ScopeError("shipped-lock-violation", `Shipped RC ${proposed.id} changes fields without override: ${ungranted.join(", ")}`);
+    }
+  }
+}
+function indexOverrides(overrides) {
+  return new Map(overrides.map((o) => [o.rcId, o]));
+}
+function proposeRCsFromConcepts(concepts) {
+  const filtered = concepts.filter((c) => c.anchorSource === "Concept" || !c.anchorSource);
+  const sources = filtered.length > 0 ? filtered : concepts;
+  return sources.map((concept, idx) => {
+    const minor = idx + 2;
+    const version2 = `0.${minor}.0`;
+    const name = deriveRCName(concept.title || concept.path);
+    return {
+      id: `${version2.replace(/\./g, "_")}_${name}`,
+      version: version2,
+      name,
+      status: "Stub",
+      anchors: [{ kind: "Concept", path: concept.path }],
+      blocks: [],
+      blockedBy: []
+    };
+  });
+}
+async function proposeRCsFromExisting(existingIndex, rcDirAbs, config2, conceptByPath) {
+  const rcs = [];
+  for (const row of existingIndex.rcRows) {
+    const filename = renderRCFilename(config2.rcNamingScheme, {
+      version: row.version,
+      name: row.name
+    });
+    const rcAbs = path11.join(rcDirAbs, filename);
+    const parsed = await parseRCFile(rcAbs);
+    const anchors = parsed?.references?.filter((ref) => conceptByPath.has(path11.resolve(rcDirAbs, "..", ref))).map((ref) => ({ kind: "Concept", path: ref }));
+    rcs.push({
+      id: `${row.version.replace(/\./g, "_")}_${row.name}`,
+      version: row.version,
+      name: row.name,
+      status: row.status,
+      anchors: anchors && anchors.length > 0 ? anchors : [{ kind: "Inline" }],
+      blocks: [],
+      blockedBy: [],
+      marketingWaypoint: row.marketing && row.marketing !== "\u2014" ? row.marketing : void 0
+    });
+  }
+  return rcs;
+}
+function deriveRCName(raw) {
+  const cleaned = raw.replace(/\.md$/i, "").replace(/[\\/]/g, "_").replace(/[^A-Za-z0-9_\s]/g, "").trim().replace(/\s+/g, "_").toUpperCase();
+  if (cleaned.length === 0) {
+    return "FEATURE";
+  }
+  if (!/^[A-Z]/.test(cleaned)) {
+    return `RC_${cleaned}`;
+  }
+  return cleaned;
+}
+function inferDAGCandidates(docs, rcs) {
+  const candidates = [];
+  const rcByAnchorPath = /* @__PURE__ */ new Map();
+  for (const rc of rcs) {
+    for (const anchor of rc.anchors) {
+      if (anchor.path) {
+        rcByAnchorPath.set(path11.basename(anchor.path), rc.id);
+      }
+    }
+  }
+  for (const doc of docs) {
+    const fromRC = rcByAnchorPath.get(path11.basename(doc.path));
+    if (!fromRC)
+      continue;
+    const lines = doc.content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      const refs = Array.from(line.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g));
+      for (const ref of refs) {
+        const targetBase = path11.basename(ref[2]);
+        const toRC = rcByAnchorPath.get(targetBase);
+        if (!toRC || toRC === fromRC)
+          continue;
+        const surrounding = lines.slice(Math.max(0, i - 2), i + 1).join(" ").toLowerCase();
+        const confidence = /prerequisit|depends?\s+on|blocked\s+by/.test(surrounding) ? "high" : "low";
+        candidates.push({
+          from: toRC,
+          to: fromRC,
+          kind: "depends-on",
+          confidence,
+          reason: `${path11.basename(doc.path)} references ${targetBase} (line ${i + 1})`
+        });
+      }
+    }
+  }
+  return dedupeCandidates(candidates);
+}
+function dedupeCandidates(candidates) {
+  const byKey = /* @__PURE__ */ new Map();
+  for (const candidate of candidates) {
+    const key = `${candidate.from}->${candidate.to}`;
+    const existing = byKey.get(key);
+    if (!existing || confidenceRank(candidate.confidence) > confidenceRank(existing.confidence)) {
+      byKey.set(key, candidate);
+    }
+  }
+  return Array.from(byKey.values());
+}
+function confidenceRank(confidence) {
+  return confidence === "high" ? 3 : confidence === "medium" ? 2 : 1;
+}
+async function computeDriftSummary(args) {
+  const mappedDocPaths = /* @__PURE__ */ new Set();
+  for (const row of args.existingIndex.rcRows) {
+    if (row.anchor && row.anchor.toLowerCase().endsWith(".md")) {
+      mappedDocPaths.add(row.anchor);
+    }
+  }
+  for (const unmapped of args.existingIndex.unmappedConcepts) {
+    mappedDocPaths.add(unmapped.docPath);
+  }
+  const newConceptsUnmapped = args.conceptDocs.filter((doc) => {
+    const candidates = [doc.path, path11.basename(doc.path)];
+    return !candidates.some((candidate) => mappedDocPaths.has(candidate));
+  }).map((doc) => doc.path);
+  const shippedRCs = args.existingIndex.rcRows.filter((row) => row.status.toLowerCase() === "shipped").map((row) => `${row.version.replace(/\./g, "_")}_${row.name}`);
+  const rcsMissingFromIndex = [];
+  for (const row of args.existingIndex.rcRows) {
+    const filename = renderRCFilename(args.roadmapConfig.rcNamingScheme, {
+      version: row.version,
+      name: row.name
+    });
+    const rcAbs = path11.join(args.rcDirAbs, filename);
+    const exists = await fileExists2(rcAbs);
+    if (!exists) {
+      rcsMissingFromIndex.push(`${row.version.replace(/\./g, "_")}_${row.name}`);
+    }
+  }
+  const cycles = detectCycles(args.dagCandidates.map((c) => ({ from: c.from, to: c.to })));
+  return {
+    newConceptsUnmapped,
+    shippedRCs,
+    rcsMissingFromIndex,
+    cycles
+  };
+}
+function buildScopeQuestions(mode, rcs, candidates) {
+  const questions = [];
+  if (mode === "bootstrap") {
+    questions.push({
+      id: "thesis",
+      theme: "Thesis",
+      question: "State (or confirm) the 1.0 thesis for this project. Cite the anchoring doc if there is one.",
+      rationale: "Anchors the roadmap to a single statement of intent."
+    });
+    questions.push({
+      id: "min-play",
+      theme: "MIN PLAY",
+      question: "At which RC does the core loop become testable end-to-end? Provide the RC id and a one-line criterion.",
+      rationale: "Pins the first-playable-loop waypoint.",
+      dependsOn: "thesis"
+    });
+  } else {
+    questions.push({
+      id: "drift-review",
+      theme: "Drift",
+      question: "Review the drift summary. Confirm which new concepts to map, which RCs to mark Shipped, and any reordering.",
+      rationale: "Maintenance interview is scoped to drift, not full re-interview."
+    });
+  }
+  for (const rc of rcs.slice(0, 8)) {
+    questions.push({
+      id: `rc-anchor-${rc.id}`,
+      theme: `RC ${rc.id}`,
+      question: `Confirm anchor and marketing waypoint for ${rc.id}.`,
+      rationale: "Every RC needs an anchor source."
+    });
+  }
+  if (candidates.length > 0) {
+    questions.push({
+      id: "dag-confirm",
+      theme: "Dependency DAG",
+      question: "Review the inferred dependency edges. For each, confirm whether it represents 'blocks', 'depends-on', or 'parallel'.",
+      rationale: "Inferred edges are low-confidence; the interview confirms direction and kind."
+    });
+  }
+  questions.push({
+    id: "waypoints",
+    theme: "Marketing waypoints",
+    question: "For each marketing waypoint (Wishlist, Early Access, Launch, plus any custom waypoints), state the target RC and a one-line rationale.",
+    rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions."
+  });
+  return questions;
+}
+function renderRoadmapIndex(plan, today, config2) {
+  const lines = [];
+  lines.push("# Roadmap");
+  lines.push(`Last Updated: ${today}`);
+  lines.push("");
+  lines.push("## Definition of Done");
+  lines.push("- [ ] Every concept doc is mapped to an RC or listed in Unmapped Concepts with a reason.");
+  lines.push("- [ ] Every RC has an anchor (Concept / Plan / ADR / Inline thesis).");
+  lines.push("- [ ] Every RC has a position in the prerequisite DAG (or marked parallel).");
+  lines.push("- [ ] The DAG is acyclic.");
+  lines.push("- [ ] Marketing waypoints have target RCs and rationales.");
+  lines.push("");
+  lines.push("## 1.0 Thesis");
+  const thesisText = plan.thesis.text || "(TBD)";
+  if (plan.thesis.anchorDoc) {
+    lines.push(`${thesisText} \u2014 anchor: \`${plan.thesis.anchorDoc}\``);
+  } else {
+    lines.push(thesisText);
+  }
+  lines.push("");
+  lines.push("## MIN PLAY Waypoint");
+  lines.push(`RC: ${plan.minPlayWaypoint.rcId}. Criterion: ${plan.minPlayWaypoint.criterion}`);
+  lines.push("");
+  lines.push("## Release Candidates");
+  lines.push("| Version | Name | Status | Anchor | Marketing |");
+  lines.push("|---|---|---|---|---|");
+  const orderedRCs = [...plan.rcs].sort((a, b) => compareSemver(a.version, b.version));
+  for (const rc of orderedRCs) {
+    const anchorString = rc.anchors.map((a) => a.path ?? a.kind).join(", ") || "\u2014";
+    const marketing = rc.marketingWaypoint ?? "\u2014";
+    lines.push(`| ${rc.version} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
+  }
+  lines.push("");
+  lines.push("## Prerequisite Chain");
+  for (const edge of plan.edges) {
+    lines.push(`- ${edge.from} \u2192 ${edge.to} (${edge.reason})`);
+  }
+  lines.push("");
+  lines.push("## Marketing Waypoints");
+  for (const wp of plan.waypoints) {
+    lines.push(`- **${wp.name}**: target at ${wp.targetRC}. Rationale: ${wp.rationale}`);
+  }
+  if (plan.waypoints.length === 0) {
+    lines.push("- (none configured)");
+  }
+  lines.push("");
+  lines.push("## Unmapped Concepts");
+  if (plan.unmappedConcepts.length === 0) {
+    lines.push("- None.");
+  } else {
+    for (const unmapped of plan.unmappedConcepts) {
+      lines.push(`- \`${unmapped.docPath}\` \u2014 ${unmapped.reason}`);
+    }
+  }
+  lines.push("");
+  void config2;
+  return lines.join("\n") + "\n";
+}
+function renderRCStub(rc, today, plan, existing) {
+  const lines = [];
+  lines.push(`# v${rc.version} \u2014 ${rc.name}`);
+  lines.push(`Status: ${rc.status}`);
+  lines.push(`Last Updated: ${today}`);
+  lines.push("");
+  lines.push("## Definition of Done");
+  if (existing?.definitionOfDone?.length) {
+    for (const item of existing.definitionOfDone) {
+      lines.push(`- [ ] ${item}`);
+    }
+  } else {
+    lines.push("- [ ] (Populated by /taskout)");
+  }
+  lines.push("");
+  lines.push("## Theme");
+  lines.push(existing?.theme ?? "(populated by /taskout)");
+  lines.push("");
+  lines.push("## Goals");
+  if (existing?.goals?.length) {
+    for (const goal of existing.goals) {
+      lines.push(`- ${goal}`);
+    }
+  } else {
+    lines.push("- (populated by /taskout)");
+  }
+  lines.push("");
+  lines.push("## Targeted");
+  if (existing?.targeted?.length) {
+    for (const sub of existing.targeted) {
+      lines.push(`### ${sub.heading}`);
+      for (const item of sub.items) {
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+      }
+      lines.push("");
+    }
+  } else {
+    lines.push("(populated by /taskout)");
+    lines.push("");
+  }
+  lines.push("## Blockers & Dependencies");
+  const upstream = rc.blockedBy.length ? rc.blockedBy.map((id) => `- **Upstream RC**: ${id}`) : ["- (none populated yet \u2014 run /taskout)"];
+  for (const line of upstream)
+    lines.push(line);
+  lines.push("");
+  lines.push("## References");
+  for (const anchor of rc.anchors) {
+    if (anchor.path)
+      lines.push(`- ${anchor.path}`);
+  }
+  lines.push(`- Top-level index: \`../${plan.thesis.anchorDoc ? "" : ""}roadmap.md\``);
+  lines.push("");
+  return lines.join("\n") + "\n";
+}
+function toConceptDocSummary(doc) {
+  const headings = [];
+  for (const line of doc.content.split(/\r?\n/)) {
+    const match = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (match)
+      headings.push(match[2]);
+  }
+  const crossRefs = Array.from(doc.content.matchAll(/\[[^\]]+\]\(([^)]+\.md)\)/g)).map((m) => m[1]);
+  return {
+    path: doc.path,
+    title: doc.title,
+    anchorSource: doc.anchorSource ?? "Concept",
+    headings,
+    crossRefs
+  };
+}
+function resolveDocsExclusions(input) {
+  const docsAbs = path11.resolve(input.docsDir);
+  const dirs = [];
+  const files = [];
+  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  if (isInsideDir(rcDirAbs, docsAbs)) {
+    dirs.push(path11.relative(docsAbs, rcDirAbs));
+  }
+  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  if (isInsideDir(indexAbs, docsAbs)) {
+    files.push(path11.relative(docsAbs, indexAbs));
+  }
+  if (input.roadmapConfig.techDebtFile) {
+    const techDebtAbs = path11.resolve(input.outputDir, input.roadmapConfig.techDebtFile);
+    if (isInsideDir(techDebtAbs, docsAbs)) {
+      files.push(path11.relative(docsAbs, techDebtAbs));
+    }
+  }
+  return { dirs, files };
+}
+function isInsideDir(target, base) {
+  const rel = path11.relative(base, target);
+  return rel !== "" && !rel.startsWith("..") && !path11.isAbsolute(rel);
+}
+function compareSemver(a, b) {
+  const parse3 = (v) => v.split(".").map((n) => Number(n));
+  const [aMajor, aMinor, aPatch] = parse3(a);
+  const [bMajor, bMinor, bPatch] = parse3(b);
+  if (aMajor !== bMajor)
+    return aMajor - bMajor;
+  if (aMinor !== bMinor)
+    return aMinor - bMinor;
+  return aPatch - bPatch;
+}
+function formatIsoDate(date4) {
+  return date4.toISOString().slice(0, 10);
+}
+function withDraftSuffix(absPath) {
+  const dir = path11.dirname(absPath);
+  const base = path11.basename(absPath);
+  const replaced = base.replace(/\.md$/i, ".draft.md");
+  return path11.join(dir, replaced);
+}
+async function fileExists2(target) {
+  try {
+    const info = await stat3(target);
+    return info.isFile();
+  } catch {
+    return false;
+  }
+}
+
+// dist/taskout.js
+import { mkdir as mkdir3, readdir as readdir2, stat as stat4, writeFile as writeFile4 } from "node:fs/promises";
+import path12 from "node:path";
+var TaskoutError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "TaskoutError";
+  }
+};
+async function analyzeTaskout(input) {
+  validateRCId(input.rcId);
+  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const indexExists = await fileExists3(indexAbs);
+  if (!indexExists) {
+    throw new TaskoutError("no-roadmap", `No ${input.roadmapConfig.indexFile} at ${indexAbs}. Run /roadmap first to bootstrap the project roadmap.`);
+  }
+  const parsedIndex = await parseRoadmapIndex(indexAbs);
+  if (!parsedIndex) {
+    throw new TaskoutError("no-roadmap", `Failed to parse ${indexAbs}.`);
+  }
+  const row = parsedIndex.rcRows.find((r) => `${r.version.replace(/\./g, "_")}_${r.name}` === input.rcId);
+  if (!row) {
+    throw new TaskoutError("rc-not-in-index", `RC ${input.rcId} is not declared in ${input.roadmapConfig.indexFile}. Run /roadmap maintenance to add it first.`);
+  }
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+    version: row.version,
+    name: row.name
+  });
+  const rcAbs = path12.resolve(rcDirAbs, filename);
+  await assertWithinDir(rcAbs, rcDirAbs);
+  const rcFileExists = await fileExists3(rcAbs);
+  const mode = rcFileExists ? "maintenance" : "bootstrap-rc";
+  const existingRC = rcFileExists ? await parseRCFile(rcAbs) : null;
+  const rc = {
+    id: input.rcId,
+    version: row.version,
+    name: row.name,
+    status: existingRC?.status ?? row.status,
+    anchors: row.anchor && row.anchor !== "\u2014" ? [{ kind: "Concept", path: row.anchor }] : [{ kind: "Inline" }],
+    blocks: [],
+    blockedBy: [],
+    marketingWaypoint: row.marketing && row.marketing !== "\u2014" ? row.marketing : void 0
+  };
+  const conceptDocs = await loadDocsRecursive(input.docsDir).catch(() => []);
+  const mappedConcepts = pickMappedConcepts(rc, conceptDocs.map((d) => d.path));
+  const carriedFromCandidates = await collectCarriedFromCandidates({
+    rcDirAbs,
+    targetRCId: input.rcId
+  });
+  const techDebtBlockers = await collectTechDebtBlockers({
+    rcDirAbs,
+    outputDir: input.outputDir,
+    roadmapConfig: input.roadmapConfig,
+    targetRCId: input.rcId
+  });
+  const draftSections = existingRC ? draftFromExisting(existingRC, techDebtBlockers, carriedFromCandidates) : draftEmpty(rc, techDebtBlockers, carriedFromCandidates);
+  const questions = buildTaskoutQuestions(rc, mode, techDebtBlockers, carriedFromCandidates);
+  return {
+    rc,
+    outputDir: input.outputDir,
+    mode,
+    mappedConcepts,
+    carriedFromCandidates,
+    techDebtBlockers,
+    draftSections,
+    questions
+  };
+}
+async function generateTaskout(input) {
+  validateRCId(input.plan.rc.id);
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+    version: input.plan.rc.version,
+    name: input.plan.rc.name
+  });
+  const rcAbs = path12.resolve(rcDirAbs, filename);
+  await assertWithinDir(rcAbs, rcDirAbs);
+  const rcFileExists = await fileExists3(rcAbs);
+  if (input.mode === "maintenance" && !rcFileExists) {
+    throw new TaskoutError("mode-mismatch", `Caller said mode='maintenance' but ${rcAbs} does not exist. Use mode='bootstrap-rc' instead.`);
+  }
+  if (input.mode === "bootstrap-rc" && rcFileExists) {
+    throw new TaskoutError("mode-mismatch", `Caller said mode='bootstrap-rc' but ${rcAbs} already exists. Use mode='maintenance' instead.`);
+  }
+  if (input.mode === "maintenance") {
+    await enforceShippedTaskoutLock(rcAbs, input.plan);
+  }
+  const today = formatIsoDate2((input.clock ?? (() => /* @__PURE__ */ new Date()))());
+  const target = input.mode === "maintenance" ? withDraftSuffix2(rcAbs) : rcAbs;
+  const content = renderTaskout(input.plan, today);
+  await mkdir3(path12.dirname(target), { recursive: true });
+  await writeFile4(target, content, "utf8");
+  return { path: target, content };
+}
+async function enforceShippedTaskoutLock(rcAbs, plan) {
+  const existing = await parseRCFile(rcAbs);
+  if (!existing)
+    return;
+  if (existing.status.toLowerCase() !== "shipped")
+    return;
+  const changed = [];
+  if (existing.theme && existing.theme !== plan.theme)
+    changed.push("theme");
+  if (!sameArray(existing.goals, plan.goals))
+    changed.push("goals");
+  if (!sameTargeted(existing.targeted, plan.targeted))
+    changed.push("targeted");
+  if (!sameArray(existing.definitionOfDone, plan.definitionOfDone)) {
+    changed.push("definitionOfDone");
+  }
+  if (plan.rc.version !== existing.version)
+    changed.push("version");
+  if (plan.rc.name !== existing.name)
+    changed.push("name");
+  const removedReferences = existing.references.filter((ref) => !plan.references.includes(ref));
+  if (removedReferences.length > 0)
+    changed.push("references-removed");
+  if (changed.length === 0)
+    return;
+  const override = plan.overrides.find((o) => o.rcId === plan.rc.id);
+  const granted = new Set(override?.changedFields ?? []);
+  const ungranted = changed.filter((field) => !granted.has(field));
+  if (ungranted.length > 0) {
+    throw new TaskoutError("shipped-lock-violation", `Shipped RC ${plan.rc.id} changes immutable fields without override: ${ungranted.join(", ")}`);
+  }
+  if (!override?.reason) {
+    throw new TaskoutError("shipped-lock-missing-reason", `shipped-lock-bypass override for ${plan.rc.id} must include a reason.`);
+  }
+}
+function draftFromExisting(existing, techDebt, carried) {
+  const blockers = [];
+  for (const upstream of existing.blockersAndDeps.filter((b) => b.kind === "Upstream RC")) {
+    blockers.push(upstream);
+  }
+  for (const debt of techDebt) {
+    blockers.push({
+      kind: "Tech Debt",
+      item: `${debt.item} (\`${debt.sourcePath}:${debt.sourceLine}\`)`,
+      sourcePath: debt.sourcePath,
+      sourceLine: debt.sourceLine
+    });
+  }
+  for (const carry of carried) {
+    blockers.push({
+      kind: "External",
+      item: `Carried from ${carry.sourceRC}: ${carry.item}`
+    });
+  }
+  return {
+    theme: existing.theme ?? "",
+    goals: existing.goals,
+    targeted: existing.targeted,
+    blockersAndDeps: blockers,
+    definitionOfDone: existing.definitionOfDone,
+    references: existing.references
+  };
+}
+function draftEmpty(rc, techDebt, carried) {
+  const blockers = [];
+  for (const upstream of rc.blockedBy) {
+    blockers.push({ kind: "Upstream RC", item: upstream });
+  }
+  for (const debt of techDebt) {
+    blockers.push({
+      kind: "Tech Debt",
+      item: `${debt.item} (\`${debt.sourcePath}:${debt.sourceLine}\`)`,
+      sourcePath: debt.sourcePath,
+      sourceLine: debt.sourceLine
+    });
+  }
+  for (const carry of carried) {
+    blockers.push({
+      kind: "External",
+      item: `Carried from ${carry.sourceRC}: ${carry.item}`
+    });
+  }
+  const references = rc.anchors.filter((a) => a.path).map((a) => a.path);
+  return {
+    theme: "",
+    goals: [],
+    targeted: [],
+    blockersAndDeps: blockers,
+    definitionOfDone: [],
+    references
+  };
+}
+function pickMappedConcepts(rc, conceptPaths) {
+  const mappedPaths = new Set(rc.anchors.filter((a) => a.path).map((a) => a.path));
+  const results = [];
+  for (const docPath of conceptPaths) {
+    const basename = path12.basename(docPath);
+    for (const anchorPath of mappedPaths) {
+      if (anchorPath === docPath || path12.basename(anchorPath) === basename) {
+        results.push({ path: docPath, relevantSections: [] });
+        break;
+      }
+    }
+  }
+  return results;
+}
+async function collectCarriedFromCandidates(args) {
+  const exists = await dirExists(args.rcDirAbs);
+  if (!exists)
+    return [];
+  const entries = await readdir2(args.rcDirAbs, { withFileTypes: true });
+  const candidates = [];
+  for (const entry of entries) {
+    if (!entry.isFile())
+      continue;
+    if (!entry.name.endsWith(".md") || entry.name.endsWith(".draft.md"))
+      continue;
+    const filePath = path12.join(args.rcDirAbs, entry.name);
+    const parsed = await parseRCFile(filePath);
+    if (!parsed)
+      continue;
+    if (`${parsed.version.replace(/\./g, "_")}_${parsed.name}` === args.targetRCId)
+      continue;
+    const lines = parsed.raw.split(/\r?\n/);
+    let inOutOfScope = false;
+    let outOfScopeLevel = 0;
+    for (let i = 0; i < lines.length; i += 1) {
+      const headingMatch = lines[i].match(/^(#{1,6})\s+(.+?)\s*$/);
+      if (headingMatch) {
+        const heading = headingMatch[2].toLowerCase().trim();
+        const level = headingMatch[1].length;
+        if (/^out[- ]?of[- ]?scope$/.test(heading)) {
+          inOutOfScope = true;
+          outOfScopeLevel = level;
+          continue;
+        }
+        if (inOutOfScope && level <= outOfScopeLevel) {
+          inOutOfScope = false;
+        }
+      }
+      if (!inOutOfScope)
+        continue;
+      const checkbox = lines[i].match(/^- \[( |x|X)\]\s+(.+)$/);
+      if (!checkbox)
+        continue;
+      const body = checkbox[2];
+      const arrowMatch = body.match(/(?:→|->)\s*([A-Z0-9_]+)/);
+      if (!arrowMatch || arrowMatch[1] !== args.targetRCId)
+        continue;
+      const itemText = body.replace(/`[^`]+`/g, "").replace(/(?:→|->)\s*[A-Z0-9_]+\.?/, "").trim();
+      candidates.push({
+        sourceRC: `${parsed.version.replace(/\./g, "_")}_${parsed.name}`,
+        item: itemText,
+        sourceLine: i + 1
+      });
+    }
+  }
+  return candidates;
+}
+async function collectTechDebtBlockers(args) {
+  if (!args.roadmapConfig.techDebtFile)
+    return [];
+  const techDebtAbs = path12.resolve(args.outputDir, args.roadmapConfig.techDebtFile);
+  const parsed = await parseTechDebt(techDebtAbs);
+  if (!parsed)
+    return [];
+  const blockers = [];
+  for (const item of parsed.items) {
+    if (!item.blocks.includes(args.targetRCId))
+      continue;
+    blockers.push({
+      item: item.text,
+      sourcePath: args.roadmapConfig.techDebtFile,
+      sourceLine: item.sourceLine,
+      severity: item.severity
+    });
+  }
+  return blockers;
+}
+function buildTaskoutQuestions(rc, mode, techDebt, carried) {
+  const questions = [];
+  if (mode === "maintenance") {
+    questions.push({
+      id: "review-existing",
+      theme: "Existing RC",
+      question: `Review the existing ${rc.id} contents. Confirm Theme/Goals/Targeted as-is or restate.`,
+      rationale: "Maintenance mode preserves prior content unless changes are stated."
+    });
+  }
+  questions.push({
+    id: "theme",
+    theme: "Theme",
+    question: `In 1-3 lines, state the theme of ${rc.id}.`,
+    rationale: "Anchors the RC for readers."
+  });
+  questions.push({
+    id: "goals",
+    theme: "Goals",
+    question: "List 3-5 player-facing outcomes that pass when this RC ships.",
+    rationale: "Outcomes drive DoD criteria."
+  });
+  questions.push({
+    id: "targeted",
+    theme: "Targeted",
+    question: "For each major area of work, list epic-level checklist items. Cite concept-doc sections inline.",
+    rationale: "Epic-level granularity; the per-task breakdown lives in Plan/ docs."
+  });
+  if (techDebt.length || carried.length) {
+    questions.push({
+      id: "blockers",
+      theme: "Blockers & Dependencies",
+      question: "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items). Add any external pending decisions.",
+      rationale: "Surfaces anything that would delay the work."
+    });
+  }
+  questions.push({
+    id: "dod",
+    theme: "Definition of Done",
+    question: "List 4-8 testable pass/fail assertions that gate ship.",
+    rationale: "DoD is the ship gate, not a wish list."
+  });
+  return questions;
+}
+function renderTaskout(plan, today) {
+  const lines = [];
+  const status = plan.overrides.find((o) => o.changedFields.includes("status-downgrade")) ? plan.rc.status : plan.rc.status;
+  lines.push(`# v${plan.rc.version} \u2014 ${plan.rc.name}`);
+  lines.push(`Status: ${status}`);
+  lines.push(`Last Updated: ${today}`);
+  const override = plan.overrides.find((o) => o.kind === "shipped-lock-bypass");
+  if (override) {
+    const fields = override.changedFields.join(",");
+    const safeReason = override.reason.replace(/[-<>]/g, " ");
+    lines.push(`<!-- shipped-override: fields=${fields}; reason=${safeReason}; date=${today} -->`);
+  }
+  lines.push("");
+  lines.push("## Definition of Done");
+  if (plan.definitionOfDone.length === 0) {
+    lines.push("- [ ] (none provided)");
+  } else {
+    for (const item of plan.definitionOfDone) {
+      lines.push(`- [ ] ${item}`);
+    }
+  }
+  lines.push("");
+  lines.push("## Theme");
+  lines.push(plan.theme || "(TBD)");
+  lines.push("");
+  lines.push("## Goals");
+  if (plan.goals.length === 0) {
+    lines.push("- (none provided)");
+  } else {
+    for (const goal of plan.goals) {
+      lines.push(`- ${goal}`);
+    }
+  }
+  lines.push("");
+  lines.push("## Targeted");
+  if (plan.targeted.length === 0) {
+    lines.push("(none provided)");
+    lines.push("");
+  } else {
+    for (const sub of plan.targeted) {
+      lines.push(`### ${sub.heading}`);
+      for (const item of sub.items) {
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+      }
+      lines.push("");
+    }
+  }
+  lines.push("## Blockers & Dependencies");
+  if (plan.blockersAndDeps.length === 0) {
+    lines.push("- None identified.");
+  } else {
+    for (const blocker of plan.blockersAndDeps) {
+      lines.push(`- **${blocker.kind}**: ${blocker.item}`);
+    }
+  }
+  lines.push("");
+  lines.push("## References");
+  if (plan.references.length === 0) {
+    lines.push("- (none)");
+  } else {
+    for (const ref of plan.references) {
+      lines.push(`- ${ref}`);
+    }
+  }
+  lines.push("");
+  return lines.join("\n") + "\n";
+}
+function sameArray(a, b) {
+  if (a.length !== b.length)
+    return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].trim() !== b[i].trim())
+      return false;
+  }
+  return true;
+}
+function sameTargeted(a, b) {
+  if (a.length !== b.length)
+    return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].heading !== b[i].heading)
+      return false;
+    if (a[i].items.length !== b[i].items.length)
+      return false;
+    for (let j = 0; j < a[i].items.length; j += 1) {
+      if (a[i].items[j].text.trim() !== b[i].items[j].text.trim())
+        return false;
+    }
+  }
+  return true;
+}
+function formatIsoDate2(date4) {
+  return date4.toISOString().slice(0, 10);
+}
+function withDraftSuffix2(absPath) {
+  const dir = path12.dirname(absPath);
+  const base = path12.basename(absPath);
+  return path12.join(dir, base.replace(/\.md$/i, ".draft.md"));
+}
+async function fileExists3(target) {
+  try {
+    const info = await stat4(target);
+    return info.isFile();
+  } catch {
+    return false;
+  }
+}
+async function dirExists(target) {
+  try {
+    const info = await stat4(target);
+    return info.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
@@ -22020,6 +23691,63 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           style_template_path: { type: "string" }
         },
         required: ["concept", "docs_dir"]
+      }
+    },
+    {
+      name: "design_scope_start",
+      description: "Analyze the docs set and seed a socratic roadmap interview. Returns concept-doc inventory, proposed release candidates, low-confidence DAG edges, drift summary (maintenance mode), and the question set.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          docs_dir: { type: "string" },
+          output_dir: { type: "string" },
+          style_template_path: { type: "string" },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["docs_dir", "output_dir"]
+      }
+    },
+    {
+      name: "design_scope_generate",
+      description: "Write the project roadmap.md and per-RC stubs from a confirmed scope plan. Maintenance mode writes .draft.md siblings only.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          confirmed_plan: { type: "object" },
+          output_dir: { type: "string" },
+          mode: { type: "string", enum: ["bootstrap", "maintenance"] },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["confirmed_plan", "output_dir", "mode"]
+      }
+    },
+    {
+      name: "design_taskout_start",
+      description: "Analyze a single release candidate and seed its socratic taskout interview. Returns mapped concept docs, sibling carried-from candidates, scanned tech-debt blockers, draft sections, and the question set.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          rc_id: { type: "string" },
+          docs_dir: { type: "string" },
+          output_dir: { type: "string" },
+          style_template_path: { type: "string" },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["rc_id", "docs_dir", "output_dir"]
+      }
+    },
+    {
+      name: "design_taskout_generate",
+      description: "Write a per-RC file from a confirmed taskout plan. Bootstrap-rc writes the original file directly; maintenance writes a .draft.md sibling. Refuses to overwrite a Shipped RC's immutable fields without an explicit shipped-lock-bypass override.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          confirmed_plan: { type: "object" },
+          output_dir: { type: "string" },
+          mode: { type: "string", enum: ["bootstrap-rc", "maintenance"] },
+          roadmap_config_path: { type: "string" }
+        },
+        required: ["confirmed_plan", "output_dir", "mode"]
       }
     }
   ]
@@ -22379,6 +24107,53 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => ({
           required: false
         }
       ]
+    },
+    {
+      name: "roadmap",
+      description: "Run the socratic scope/roadmap interview against the docs set and write roadmap.md plus per-RC stubs. Maintenance mode writes .draft.md siblings only.",
+      arguments: [
+        {
+          name: "docs_dir",
+          description: "Docs directory to scope from (Concept/Plan/ADR subtrees)",
+          required: false
+        },
+        {
+          name: "output_dir",
+          description: "Project root where roadmap.md and Roadmap/ live (defaults to cwd)",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "taskout",
+      description: "Run the socratic per-RC taskout interview. Refuses without an existing roadmap.md. Bootstrap-rc writes the original file; maintenance writes a .draft.md sibling.",
+      arguments: [
+        {
+          name: "rc_id",
+          description: "Release candidate id (e.g. 0_8_0_QUESTS)",
+          required: true
+        },
+        {
+          name: "docs_dir",
+          description: "Docs directory to scope from",
+          required: false
+        },
+        {
+          name: "output_dir",
+          description: "Project root containing roadmap.md and Roadmap/ (defaults to cwd)",
+          required: false
+        },
+        {
+          name: "style_template_path",
+          description: "Optional golden document template to use as the primary style reference",
+          required: false
+        }
+      ]
     }
   ]
 }));
@@ -22567,6 +24342,32 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           }
         ]
       };
+    case "roadmap":
+      return {
+        description: "Run the socratic scope/roadmap interview and write artifacts after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: roadmapPrompt(args?.docs_dir ? String(args.docs_dir) : void 0, args?.output_dir ? String(args.output_dir) : void 0, args?.style_template_path ? String(args.style_template_path) : void 0)
+            }
+          }
+        ]
+      };
+    case "taskout":
+      return {
+        description: "Run the socratic per-RC taskout interview and write artifacts after confirmation.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: taskoutPrompt(String(args?.rc_id ?? ""), args?.docs_dir ? String(args.docs_dir) : void 0, args?.output_dir ? String(args.output_dir) : void 0, args?.style_template_path ? String(args.style_template_path) : void 0)
+            }
+          }
+        ]
+      };
     default:
       throw new Error(`Unknown prompt: ${name}`);
   }
@@ -22617,6 +24418,69 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await designSummarize(String(args?.concept ?? ""), String(args?.docs_dir ?? ""), args?.style_template_path ? String(args.style_template_path) : void 0);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_scope_start": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await analyzeScope({
+        docsDir: String(args?.docs_dir ?? ""),
+        outputDir,
+        styleTemplatePath: args?.style_template_path ? String(args.style_template_path) : void 0,
+        roadmapConfig: loaded.config,
+        configBaseDir: loaded.configBaseDir,
+        clock: () => /* @__PURE__ */ new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_scope_generate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const plan = args?.confirmed_plan;
+      const mode = String(args?.mode ?? "bootstrap");
+      const result = await generateScope({
+        plan,
+        outputDir,
+        mode,
+        roadmapConfig: loaded.config,
+        clock: () => /* @__PURE__ */ new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify({ paths: result.paths }, null, 2) }]
+      };
+    }
+    case "design_taskout_start": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await analyzeTaskout({
+        rcId: String(args?.rc_id ?? ""),
+        docsDir: String(args?.docs_dir ?? ""),
+        outputDir,
+        styleTemplatePath: args?.style_template_path ? String(args.style_template_path) : void 0,
+        roadmapConfig: loaded.config,
+        configBaseDir: loaded.configBaseDir,
+        clock: () => /* @__PURE__ */ new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_taskout_generate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const plan = args?.confirmed_plan;
+      const mode = String(args?.mode ?? "bootstrap-rc");
+      const result = await generateTaskout({
+        plan,
+        outputDir,
+        mode,
+        roadmapConfig: loaded.config,
+        clock: () => /* @__PURE__ */ new Date()
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify({ path: result.path }, null, 2) }]
       };
     }
     default:
@@ -23000,6 +24864,61 @@ function redressPrompt(docPath, docsDir, styleTemplatePath) {
     "10. If the user cancels, abandon the redress task entirely, ask no further redress questions, and make clear that nothing was written and the task was abandoned.",
     "",
     "Focus on bringing the file up to the current local house style, not on reopening every design decision."
+  ].join("\n");
+}
+function roadmapPrompt(docsDir, outputDir, styleTemplatePath) {
+  return [
+    `Run the socratic scope/roadmap interview for this project.`,
+    docsDir ? `Docs directory: "${docsDir}".` : `Docs directory: resolve from claude-interrogate.json or default to ./docs.`,
+    outputDir ? `Output directory: "${outputDir}".` : `Output directory: defaults to the current working directory.`,
+    ...styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : [],
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, cancel this task and continue with the new one.",
+    "1. Call `design_scope_start` with docs_dir, output_dir, and (if configured) style_template_path.",
+    "2. If the tool refuses with `no-concept-docs`, tell the user the project has no concept docs and point them to /interrogate <concept>. Stop.",
+    "3. Detect mode from the response. If `mode === 'maintenance'`, present the drift summary and run a focused interview on the gaps only. If `bootstrap`, run the full interview.",
+    "4. Keep the returned question set as a private working queue. Ask one question at a time in dependency order.",
+    "5. Interview the prerequisite DAG and marketing waypoints in parallel \u2014 every candidate edge needs the user to confirm direction (`blocks`, `depends-on`, or `parallel`) with a one-line reason.",
+    "6. For RCs that collide with reserved version slots, surface the collision and let the user pick rename, replace (recorded as a `reserved-slot-collision` override), or cancel.",
+    "7. Coverage gate before write: every concept doc is mapped to an RC or appendix'd with a reason; every RC has anchor + marketing-waypoint position (or 'none'); the confirmed DAG is acyclic. Surface gaps and re-interview until covered.",
+    "8. If existing roadmap rows include Shipped RCs and the confirmed plan changes their immutable fields (version, name, anchors, marketing waypoint), interview the user to authorize a `shipped-lock-bypass` override per RC, with a reason.",
+    "9. Present a concise findings summary and ask the user to choose: confirm, modify, deny, or cancel.",
+    "10. On confirm, assemble a typed `ConfirmedScopePlan` and call `design_scope_generate` with the detected mode. In maintenance mode the tool writes `roadmap.draft.md` and per-RC `*.draft.md` siblings \u2014 never the originals. Tell the user where the drafts landed and recommend they diff.",
+    "11. On modify, continue the interview. On deny, stop without writing. On cancel, abandon the task entirely and state that nothing was written.",
+    "",
+    "Behavior:",
+    "- Do not dump the whole question set to the user.",
+    "- Push on vague answers; the interview is the source of truth for the DAG, not the inferred candidates.",
+    "- If `design_scope_generate` refuses with `cycle-detected`, surface the cycle and interview the user to break it before re-attempting.",
+    "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
+  ].join("\n");
+}
+function taskoutPrompt(rcId, docsDir, outputDir, styleTemplatePath) {
+  return [
+    `Run the socratic per-RC taskout interview for "${rcId}".`,
+    docsDir ? `Docs directory: "${docsDir}".` : `Docs directory: resolve from claude-interrogate.json or default to ./docs.`,
+    outputDir ? `Output directory: "${outputDir}".` : `Output directory: defaults to the current working directory.`,
+    ...styleTemplatePath ? [`Use "${styleTemplatePath}" as the golden style template.`] : [],
+    "",
+    "Required sequence:",
+    "0. If the user starts a different file-writing task while this one is still open, cancel this task and continue with the new one.",
+    "1. Call `design_taskout_start` with the RC id, docs_dir, output_dir, and (if configured) style_template_path.",
+    "2. If the tool refuses with `no-roadmap`, tell the user to run /roadmap first. If `rc-not-in-index`, tell them to run /roadmap maintenance to add the RC to the index. Stop in either case.",
+    "3. The tool returns the detected mode (`bootstrap-rc` or `maintenance`). Use it verbatim when calling generate \u2014 do not override.",
+    "4. Walk the draft sections with the user in order: Theme, Goals, Targeted, Blockers & Dependencies, Definition of Done, References.",
+    "5. For Blockers & Dependencies: the tool surfaces upstream RCs, scanned tech-debt items (with `path:line` citations), and Carried-From items from sibling RCs. Confirm each and ask for any external blockers (pending ADRs, vendor decisions).",
+    "6. Coverage gate: every section has content; DoD has at least 3 testable assertions; References cites every doc named inline in Targeted.",
+    "7. If the RC's existing status is `Shipped` and the confirmed plan changes immutable fields (theme, goals, targeted, definitionOfDone, anchors, version, name, or removes a reference), interview the user for a `shipped-lock-bypass` override naming the changed fields and a reason.",
+    "8. Present a concise findings summary and ask the user to choose: confirm, modify, deny, or cancel.",
+    "9. On confirm, assemble a typed `ConfirmedTaskoutPlan` and call `design_taskout_generate` with the detected mode. Bootstrap-rc writes the original file; maintenance writes a `.draft.md` sibling. Tell the user where the file landed.",
+    "10. On modify, continue the interview. On deny, stop without writing. On cancel, abandon the task entirely.",
+    "",
+    "Behavior:",
+    "- Do not dump the whole question set to the user.",
+    "- Granularity inside Targeted is epic-level checklist items, not story-level tasks. Detailed task breakdowns belong in Plan/ docs.",
+    "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
+    "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");
 }
 function normalizeChallengeModeArg(value, challenge) {
