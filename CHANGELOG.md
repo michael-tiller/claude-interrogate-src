@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.5] - 2026-05-28
+
+### Changed
+
+- Default roadmap config is now generic, not game-dev biased. `reservedSlots` defaults from four game-dev slots (Showcase content / Stretch / Late-stage polish / Release readiness) to a single `1.0.0` slot ("First stable release"). `marketingWaypoints` defaults from `["Wishlist", "Early Access", "Launch"]` to `[]`. Interrogate is a general design tool; the previous defaults imposed an indie-game mental model on every project, which is wrong for users designing tooling, libraries, infra, or any non-game work. Game-dev defaults remain available — they belong in per-project `claude-interrogate.json` files, not as imposed defaults.
+- The scope/roadmap interview no longer asks the marketing-waypoints question when no waypoints are configured. When waypoints are configured, the question now interpolates the actual configured names rather than hardcoding "Wishlist, Early Access, Launch."
+- Roadmap command documentation updated to drop the "dirigible-style defaults" framing.
+
 ## [0.1.4] - 2026-05-28
 
 ### Fixed

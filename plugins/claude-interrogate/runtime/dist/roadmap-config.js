@@ -2,18 +2,20 @@ import path from "node:path";
 import { loadInterrogateConfig } from "./config.js";
 import { PathSafetyError, validateNamingScheme, validateRelativePath } from "./path-safety.js";
 const SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
+// Defaults are deliberately generic — interrogate is a general design tool,
+// not specific to any project type. Game-dev or other domain-specific defaults
+// (Wishlist/Early Access/Launch waypoints, multiple reserved slots for content
+// passes, etc.) belong in per-project `claude-interrogate.json` files or in
+// future opt-in presets, never as imposed defaults.
 export const DEFAULT_ROADMAP_CONFIG = Object.freeze({
     indexFile: "roadmap.md",
     rcDir: "Roadmap",
     rcNamingScheme: "{major}_{minor}_{patch}_{NAME}.md",
     techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
     reservedSlots: [
-        { version: "0.95.0", purpose: "Showcase / optional content project" },
-        { version: "0.98.0", purpose: "Stretch / optional feature" },
-        { version: "0.99.0", purpose: "Late-stage polish" },
-        { version: "1.0.0", purpose: "Release readiness" }
+        { version: "1.0.0", purpose: "First stable release" }
     ],
-    marketingWaypoints: ["Wishlist", "Early Access", "Launch"],
+    marketingWaypoints: [],
     anchorSources: ["Concept", "Plan", "ADR"]
 });
 export class RoadmapConfigError extends Error {

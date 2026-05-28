@@ -22161,12 +22161,9 @@ var DEFAULT_ROADMAP_CONFIG = Object.freeze({
   rcNamingScheme: "{major}_{minor}_{patch}_{NAME}.md",
   techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
   reservedSlots: [
-    { version: "0.95.0", purpose: "Showcase / optional content project" },
-    { version: "0.98.0", purpose: "Stretch / optional feature" },
-    { version: "0.99.0", purpose: "Late-stage polish" },
-    { version: "1.0.0", purpose: "Release readiness" }
+    { version: "1.0.0", purpose: "First stable release" }
   ],
-  marketingWaypoints: ["Wishlist", "Early Access", "Launch"],
+  marketingWaypoints: [],
   anchorSources: ["Concept", "Plan", "ADR"]
 });
 var RoadmapConfigError = class extends Error {
@@ -22657,7 +22654,7 @@ async function analyzeScope(input) {
       roadmapConfig: input.roadmapConfig
     });
   }
-  const questions = buildScopeQuestions(mode, proposedRCs, dagCandidates);
+  const questions = buildScopeQuestions(mode, proposedRCs, dagCandidates, input.roadmapConfig.marketingWaypoints);
   return {
     docsDir: input.docsDir,
     outputDir: input.outputDir,
@@ -22944,7 +22941,7 @@ async function computeDriftSummary(args) {
     cycles
   };
 }
-function buildScopeQuestions(mode, rcs, candidates) {
+function buildScopeQuestions(mode, rcs, candidates, marketingWaypoints) {
   const questions = [];
   if (mode === "bootstrap") {
     questions.push({
@@ -22984,12 +22981,15 @@ function buildScopeQuestions(mode, rcs, candidates) {
       rationale: "Inferred edges are low-confidence; the interview confirms direction and kind."
     });
   }
-  questions.push({
-    id: "waypoints",
-    theme: "Marketing waypoints",
-    question: "For each marketing waypoint (Wishlist, Early Access, Launch, plus any custom waypoints), state the target RC and a one-line rationale.",
-    rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions."
-  });
+  if (marketingWaypoints.length > 0) {
+    const waypointList = marketingWaypoints.join(", ");
+    questions.push({
+      id: "waypoints",
+      theme: "Marketing waypoints",
+      question: `For each marketing waypoint (${waypointList}), state the target RC and a one-line rationale.`,
+      rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions."
+    });
+  }
   return questions;
 }
 function renderRoadmapIndex(plan, today, config2) {

@@ -13,7 +13,7 @@ The user invoked this command with: $ARGUMENTS
 1. Parse the optional first argument as the docs directory.
 2. If the docs directory is missing, look for `claude-interrogate.json` or `.claude-interrogate.json` and use its `docsDir`. Otherwise default to `./docs` if it exists; otherwise `./sample-docs`.
 3. If config provides `styleTemplate`, pass it through as `style_template_path`.
-4. Output directory defaults to the current working directory (project root). Roadmap conventions (`roadmap.indexFile`, `roadmap.rcDir`, `roadmap.rcNamingScheme`, `roadmap.techDebtFile`, `roadmap.reservedSlots`, `roadmap.marketingWaypoints`, `roadmap.anchorSources`) come from the `roadmap` block in `claude-interrogate.json` and fall back to dirigible-style defaults.
+4. Output directory defaults to the current working directory (project root). Roadmap conventions (`roadmap.indexFile`, `roadmap.rcDir`, `roadmap.rcNamingScheme`, `roadmap.techDebtFile`, `roadmap.reservedSlots`, `roadmap.marketingWaypoints`, `roadmap.anchorSources`) come from the `roadmap` block in `claude-interrogate.json`. Defaults are deliberately generic (empty marketing waypoints, a single 1.0.0 reserved slot) since interrogate is a general design tool; project-type-specific conventions (game-dev waypoints, content passes, etc.) belong in per-project config.
 5. Prefer the MCP prompt `/mcp__claude_interrogate__roadmap`.
 6. If MCP prompts are unavailable, call `design_scope_start` directly with `docs_dir`, `output_dir`, and (if configured) `style_template_path`. Then conduct the interview and call `design_scope_generate` with a typed `ConfirmedScopePlan` and the detected mode.
 

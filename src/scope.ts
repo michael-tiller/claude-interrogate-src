@@ -83,7 +83,12 @@ export async function analyzeScope(input: AnalyzeScopeInput): Promise<ScopeStart
     });
   }
 
-  const questions = buildScopeQuestions(mode, proposedRCs, dagCandidates);
+  const questions = buildScopeQuestions(
+    mode,
+    proposedRCs,
+    dagCandidates,
+    input.roadmapConfig.marketingWaypoints,
+  );
 
   return {
     docsDir: input.docsDir,
@@ -448,6 +453,7 @@ function buildScopeQuestions(
   mode: "bootstrap" | "maintenance",
   rcs: RCMetadata[],
   candidates: DAGCandidate[],
+  marketingWaypoints: readonly string[],
 ): InterviewQuestion[] {
   const questions: InterviewQuestion[] = [];
 
@@ -496,13 +502,15 @@ function buildScopeQuestions(
     });
   }
 
-  questions.push({
-    id: "waypoints",
-    theme: "Marketing waypoints",
-    question:
-      "For each marketing waypoint (Wishlist, Early Access, Launch, plus any custom waypoints), state the target RC and a one-line rationale.",
-    rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions.",
-  });
+  if (marketingWaypoints.length > 0) {
+    const waypointList = marketingWaypoints.join(", ");
+    questions.push({
+      id: "waypoints",
+      theme: "Marketing waypoints",
+      question: `For each marketing waypoint (${waypointList}), state the target RC and a one-line rationale.`,
+      rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions.",
+    });
+  }
 
   return questions;
 }

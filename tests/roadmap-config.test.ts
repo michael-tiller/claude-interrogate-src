@@ -23,17 +23,13 @@ async function makeTempDir(): Promise<string> {
 }
 
 describe("applyRoadmapConfigDefaults", () => {
-  it("returns the dirigible default when no overrides are provided", () => {
+  it("returns the generic default when no overrides are provided", () => {
     const config = applyRoadmapConfigDefaults(undefined);
     expect(config.indexFile).toBe(DEFAULT_ROADMAP_CONFIG.indexFile);
     expect(config.rcDir).toBe(DEFAULT_ROADMAP_CONFIG.rcDir);
-    expect(config.reservedSlots.map((s) => s.version)).toEqual([
-      "0.95.0",
-      "0.98.0",
-      "0.99.0",
-      "1.0.0",
-    ]);
-    expect(config.marketingWaypoints).toEqual(["Wishlist", "Early Access", "Launch"]);
+    expect(config.reservedSlots.map((s) => s.version)).toEqual(["1.0.0"]);
+    expect(config.reservedSlots[0].purpose).toBe("First stable release");
+    expect(config.marketingWaypoints).toEqual([]);
   });
 
   it("merges partial overrides on top of defaults", () => {
