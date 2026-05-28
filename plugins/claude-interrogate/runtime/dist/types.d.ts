@@ -70,7 +70,7 @@ export interface SummaryReport {
 }
 export type AnchorSource = "Concept" | "Plan" | "ADR" | "Inline" | string;
 export interface ReservedSlot {
-    version: string;
+    milestone: number;
     purpose: string;
 }
 export interface RoadmapConfig {
@@ -89,7 +89,7 @@ export interface RCAnchor {
 }
 export interface RCMetadata {
     id: string;
-    version: string;
+    milestone: number;
     name: string;
     status: "Stub" | "Active" | "Shipped" | string;
     anchors: RCAnchor[];
@@ -130,7 +130,7 @@ export interface ScopeStartResult {
     driftSummary?: DriftSummary;
     questions: InterviewQuestion[];
 }
-export type ShippedLockChangedField = "theme" | "goals" | "targeted" | "definitionOfDone" | "anchors" | "version" | "name" | "marketing-waypoint" | "edges" | "references-removed" | "status-downgrade";
+export type ShippedLockChangedField = "theme" | "goals" | "targeted" | "definitionOfDone" | "anchors" | "milestone" | "name" | "marketing-waypoint" | "edges" | "references-removed" | "status-downgrade";
 export interface ShippedLockOverride {
     kind: "shipped-lock-bypass";
     rcId: string;
@@ -238,7 +238,7 @@ export interface TaskoutStartResult {
     questions: InterviewQuestion[];
 }
 export interface ParsedRoadmapRCRow {
-    version: string;
+    milestone: number;
     name: string;
     status: string;
     anchor?: string;
@@ -266,7 +266,7 @@ export interface ParsedRoadmapIndex {
 }
 export interface ParsedRC {
     path: string;
-    version: string;
+    milestone: number;
     name: string;
     status: string;
     lastUpdated?: string;

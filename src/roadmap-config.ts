@@ -3,21 +3,18 @@ import { loadInterrogateConfig } from "./config.js";
 import { RoadmapConfig, ReservedSlot } from "./types.js";
 import { PathSafetyError, validateNamingScheme, validateRelativePath } from "./path-safety.js";
 
-const SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
-
 // Defaults are deliberately generic — interrogate is a general design tool,
-// not specific to any project type. Game-dev or other domain-specific defaults
-// (Wishlist/Early Access/Launch waypoints, multiple reserved slots for content
-// passes, etc.) belong in per-project `claude-interrogate.json` files or in
-// future opt-in presets, never as imposed defaults.
+// not specific to any project type. Milestone identity is intentionally
+// decoupled from SemVer (versions are about compatibility at release time;
+// milestones are about what gets built when). Game-dev or other domain-specific
+// defaults (waypoints, reserved milestones for content passes, etc.) belong in
+// per-project `claude-interrogate.json` files, never as imposed defaults.
 export const DEFAULT_ROADMAP_CONFIG: RoadmapConfig = Object.freeze({
   indexFile: "roadmap.md",
   rcDir: "Roadmap",
-  rcNamingScheme: "{major}_{minor}_{patch}_{NAME}.md",
+  rcNamingScheme: "M{milestone}_{NAME}.md",
   techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
-  reservedSlots: [
-    { version: "1.0.0", purpose: "First stable release" }
-  ] as ReservedSlot[],
+  reservedSlots: [] as ReservedSlot[],
   marketingWaypoints: [],
   anchorSources: ["Concept", "Plan", "ADR"]
 }) as RoadmapConfig;
@@ -79,25 +76,25 @@ export function validateRoadmapConfig(config: RoadmapConfig): void {
     throw new RoadmapConfigError("roadmap.reservedSlots: must be an array");
   }
 
-  const seenVersions = new Set<string>();
+  const seenMilestones = new Set<number>();
   for (const slot of config.reservedSlots) {
     if (!slot || typeof slot !== "object") {
       throw new RoadmapConfigError("roadmap.reservedSlots: each entry must be an object");
     }
-    if (typeof slot.version !== "string" || !SEMVER_PATTERN.test(slot.version)) {
+    if (!Number.isInteger(slot.milestone) || slot.milestone < 0) {
       throw new RoadmapConfigError(
-        `roadmap.reservedSlots: invalid SemVer version: ${String(slot.version)}`
+        `roadmap.reservedSlots: milestone must be a non-negative integer, got: ${String(slot.milestone)}`
       );
     }
     if (typeof slot.purpose !== "string" || slot.purpose.length === 0) {
       throw new RoadmapConfigError(
-        `roadmap.reservedSlots: purpose must be a non-empty string for version ${slot.version}`
+        `roadmap.reservedSlots: purpose must be a non-empty string for milestone ${slot.milestone}`
       );
     }
-    if (seenVersions.has(slot.version)) {
-      throw new RoadmapConfigError(`roadmap.reservedSlots: duplicate version ${slot.version}`);
+    if (seenMilestones.has(slot.milestone)) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: duplicate milestone ${slot.milestone}`);
     }
-    seenVersions.add(slot.version);
+    seenMilestones.add(slot.milestone);
   }
 
   if (!Array.isArray(config.marketingWaypoints)) {

@@ -20,7 +20,7 @@ const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 const BULLET_PATTERN = /^- (.+)$/;
 const STATUS_PATTERN = /^Status:\s+(.+)$/m;
 const LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
-const RC_HEADER_PATTERN = /^#\s+.*v(\d+\.\d+\.\d+)\s+—\s+(.+?)\s*$/m;
+const RC_HEADER_PATTERN = /^#\s+.*M(\d+)\s+—\s+(.+?)\s*$/m;
 const BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
 const SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
 const TABLE_DIVIDER_PATTERN = /^\s*\|?\s*:?-{2,}.*$/;
@@ -47,14 +47,14 @@ export async function parseRCFile(absolutePath) {
     const raw = await readFile(absolutePath, "utf8");
     const sections = collectSections(raw);
     const headerMatch = raw.match(RC_HEADER_PATTERN);
-    const version = headerMatch?.[1] ?? "";
+    const milestone = headerMatch?.[1] ? Number.parseInt(headerMatch[1], 10) : 0;
     const rawName = headerMatch?.[2] ?? path.basename(absolutePath, ".md");
     const name = normalizeRCNameFromHeader(rawName);
     const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
     const lastUpdated = raw.match(LAST_UPDATED_PATTERN)?.[1]?.trim();
     return {
         path: absolutePath,
-        version,
+        milestone,
         name,
         status,
         lastUpdated,
@@ -193,12 +193,13 @@ function parseReleaseCandidates(sections) {
             });
             continue;
         }
-        const version = cells[columnIndex.version] ?? "";
-        if (!/^\d+\.\d+\.\d+$/.test(version)) {
+        const milestoneCell = cells[columnIndex.milestone] ?? "";
+        const milestoneMatch = milestoneCell.match(/^M?(\d+)$/);
+        if (!milestoneMatch) {
             continue;
         }
         rows.push({
-            version,
+            milestone: Number.parseInt(milestoneMatch[1], 10),
             name: cells[columnIndex.name] ?? "",
             status: cells[columnIndex.status] ?? "",
             anchor: cells[columnIndex.anchor],

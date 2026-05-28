@@ -27,8 +27,7 @@ describe("applyRoadmapConfigDefaults", () => {
     const config = applyRoadmapConfigDefaults(undefined);
     expect(config.indexFile).toBe(DEFAULT_ROADMAP_CONFIG.indexFile);
     expect(config.rcDir).toBe(DEFAULT_ROADMAP_CONFIG.rcDir);
-    expect(config.reservedSlots.map((s) => s.version)).toEqual(["1.0.0"]);
-    expect(config.reservedSlots[0].purpose).toBe("First stable release");
+    expect(config.reservedSlots).toEqual([]);
     expect(config.marketingWaypoints).toEqual([]);
   });
 
@@ -45,22 +44,22 @@ describe("applyRoadmapConfigDefaults", () => {
 });
 
 describe("validateRoadmapConfig", () => {
-  it("rejects a non-SemVer reserved slot", () => {
+  it("rejects a non-integer reserved-slot milestone", () => {
     expect(() =>
       validateRoadmapConfig({
         ...DEFAULT_ROADMAP_CONFIG,
-        reservedSlots: [{ version: "1.0", purpose: "broken" }],
+        reservedSlots: [{ milestone: 1.5 as unknown as number, purpose: "broken" }],
       }),
     ).toThrow(RoadmapConfigError);
   });
 
-  it("rejects duplicate reserved-slot versions", () => {
+  it("rejects duplicate reserved-slot milestones", () => {
     expect(() =>
       validateRoadmapConfig({
         ...DEFAULT_ROADMAP_CONFIG,
         reservedSlots: [
-          { version: "0.99.0", purpose: "first" },
-          { version: "0.99.0", purpose: "second" },
+          { milestone: 99, purpose: "first" },
+          { milestone: 99, purpose: "second" },
         ],
       }),
     ).toThrow(RoadmapConfigError);
@@ -70,7 +69,7 @@ describe("validateRoadmapConfig", () => {
     expect(() =>
       validateRoadmapConfig({
         ...DEFAULT_ROADMAP_CONFIG,
-        rcNamingScheme: "{major}_{minor}_{patch}.md",
+        rcNamingScheme: "M{milestone}.md",
       }),
     ).toThrow(RoadmapConfigError);
   });
@@ -79,7 +78,7 @@ describe("validateRoadmapConfig", () => {
     expect(() =>
       validateRoadmapConfig({
         ...DEFAULT_ROADMAP_CONFIG,
-        rcNamingScheme: "{major}_{minor}_{patch}_{NAME}",
+        rcNamingScheme: "M{milestone}_{NAME}",
       }),
     ).toThrow(RoadmapConfigError);
   });

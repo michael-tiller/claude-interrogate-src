@@ -1,10 +1,10 @@
 import path from "node:path";
 import { realpath } from "node:fs/promises";
 
-const RC_ID_PATTERN = /^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$/;
+const RC_ID_PATTERN = /^M[0-9]+_[A-Z][A-Z0-9_]*$/;
 const RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
-const REQUIRED_PLACEHOLDERS = ["{major}", "{minor}", "{patch}", "{NAME}"] as const;
-const KNOWN_PLACEHOLDERS = new Set(["{major}", "{minor}", "{patch}", "{NAME}"]);
+const REQUIRED_PLACEHOLDERS = ["{milestone}", "{NAME}"] as const;
+const KNOWN_PLACEHOLDERS = new Set(["{milestone}", "{NAME}"]);
 const PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 
 export class PathSafetyError extends Error {
@@ -50,7 +50,7 @@ export function validateRCId(id: string): void {
   if (typeof id !== "string" || !RC_ID_PATTERN.test(id)) {
     throw new PathSafetyError(
       "rc.id",
-      `must match ^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. 0_8_0_QUESTS), got: ${id}`
+      `must match ^M[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. M8_QUESTS), got: ${id}`
     );
   }
 }
@@ -127,21 +127,18 @@ export function renderRCName(rawName: string): string {
 
 export function renderRCFilename(
   template: string,
-  meta: { version: string; name: string }
+  meta: { milestone: number; name: string }
 ): string {
   validateNamingScheme(template);
 
-  const semverMatch = meta.version.match(/^(\d+)\.(\d+)\.(\d+)$/);
-  if (!semverMatch) {
-    throw new PathSafetyError("rc.version", `must be MAJOR.MINOR.PATCH SemVer, got: ${meta.version}`);
+  if (!Number.isInteger(meta.milestone) || meta.milestone < 0) {
+    throw new PathSafetyError("rc.milestone", `must be a non-negative integer, got: ${meta.milestone}`);
   }
 
   validateRCName(meta.name);
 
   const rendered = template
-    .replace(/\{major\}/g, semverMatch[1])
-    .replace(/\{minor\}/g, semverMatch[2])
-    .replace(/\{patch\}/g, semverMatch[3])
+    .replace(/\{milestone\}/g, String(meta.milestone))
     .replace(/\{NAME\}/g, meta.name);
 
   validateRelativePath(rendered, "renderedRCFilename");

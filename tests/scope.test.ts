@@ -152,8 +152,8 @@ describe("generateScope", () => {
     const { root } = await makeProjectDir();
     const plan = buildPlan([
       {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Stub",
         anchors: [{ kind: "Concept", path: "Concept/core_loop.md" }],
@@ -172,12 +172,12 @@ describe("generateScope", () => {
 
     expect(result.paths).toHaveLength(2);
     expect(result.paths[0]).toMatch(/roadmap\.md$/);
-    expect(result.paths[1]).toMatch(/0_2_0_CORE\.md$/);
+    expect(result.paths[1]).toMatch(/M2_CORE\.md$/);
 
     const index = await readFile(path.join(root, "roadmap.md"), "utf8");
     expect(index).toContain("## Definition of Done");
     expect(index).toContain("## 1.0 Thesis");
-    expect(index).toContain("0.2.0");
+    expect(index).toContain("M2");
   });
 
   it("writes .draft.md siblings in maintenance mode and never touches originals", async () => {
@@ -185,15 +185,15 @@ describe("generateScope", () => {
     await writeFile(path.join(root, "roadmap.md"), "# Existing roadmap\n", "utf8");
     await mkdir(path.join(root, "Roadmap"));
     await writeFile(
-      path.join(root, "Roadmap", "0_2_0_CORE.md"),
+      path.join(root, "Roadmap", "M2_CORE.md"),
       "# Existing CORE\nStatus: Active\n",
       "utf8",
     );
 
     const plan = buildPlan([
       {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Active",
         anchors: [{ kind: "Concept", path: "Concept/core_loop.md" }],
@@ -211,7 +211,7 @@ describe("generateScope", () => {
     });
 
     expect(result.paths[0]).toMatch(/roadmap\.draft\.md$/);
-    expect(result.paths[1]).toMatch(/0_2_0_CORE\.draft\.md$/);
+    expect(result.paths[1]).toMatch(/M2_CORE\.draft\.md$/);
     const originalIndex = await readFile(path.join(root, "roadmap.md"), "utf8");
     expect(originalIndex).toBe("# Existing roadmap\n");
   });
@@ -221,7 +221,7 @@ describe("generateScope", () => {
     const rcs: RCMetadata[] = [
       {
         id: "A",
-        version: "0.2.0",
+        milestone: 2,
         name: "A",
         status: "Stub",
         anchors: [{ kind: "Inline" }],
@@ -230,7 +230,7 @@ describe("generateScope", () => {
       },
       {
         id: "B",
-        version: "0.3.0",
+        milestone: 3,
         name: "B",
         status: "Stub",
         anchors: [{ kind: "Inline" }],
@@ -264,9 +264,9 @@ describe("generateScope", () => {
         "# Existing roadmap",
         "",
         "## Release Candidates",
-        "| Version | Name | Status | Anchor | Marketing |",
+        "| Milestone | Name | Status | Anchor | Marketing |",
         "|---|---|---|---|---|",
-        "| 0.2.0 | CORE | Shipped | Concept/core_loop.md | — |",
+        "| M2 | CORE | Shipped | Concept/core_loop.md | — |",
         "",
       ].join("\n"),
       "utf8",
@@ -275,8 +275,8 @@ describe("generateScope", () => {
 
     const planChangingShippedAnchor: ConfirmedScopePlan = buildPlan([
       {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Shipped",
         anchors: [{ kind: "Concept", path: "Concept/other_anchor.md" }],
@@ -298,7 +298,7 @@ describe("generateScope", () => {
       ...planChangingShippedAnchor,
       overrides: [
         {
-          rcId: "0_2_0_CORE",
+          rcId: "M2_CORE",
           kind: "shipped-lock-bypass",
           changedFields: ["anchors"],
           reason: "anchor doc was renamed; preserving history",

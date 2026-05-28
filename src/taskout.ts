@@ -68,7 +68,7 @@ export async function analyzeTaskout(
   }
 
   const row = parsedIndex.rcRows.find(
-    (r) => `${r.version.replace(/\./g, "_")}_${r.name}` === input.rcId,
+    (r) => `M${r.milestone}_${r.name}` === input.rcId,
   );
   if (!row) {
     throw new TaskoutError(
@@ -79,7 +79,7 @@ export async function analyzeTaskout(
 
   const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    version: row.version,
+    milestone: row.milestone,
     name: row.name,
   });
   const rcAbs = path.resolve(rcDirAbs, filename);
@@ -92,7 +92,7 @@ export async function analyzeTaskout(
 
   const rc: RCMetadata = {
     id: input.rcId,
-    version: row.version,
+    milestone: row.milestone,
     name: row.name,
     status: existingRC?.status ?? row.status,
     anchors: row.anchor && row.anchor !== "—" ? [{ kind: "Concept", path: row.anchor }] : [{ kind: "Inline" }],
@@ -141,7 +141,7 @@ export async function generateTaskout(
 
   const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    version: input.plan.rc.version,
+    milestone: input.plan.rc.milestone,
     name: input.plan.rc.name,
   });
   const rcAbs = path.resolve(rcDirAbs, filename);
@@ -191,7 +191,7 @@ async function enforceShippedTaskoutLock(
   if (!sameArray(existing.definitionOfDone, plan.definitionOfDone)) {
     changed.push("definitionOfDone");
   }
-  if (plan.rc.version !== existing.version) changed.push("version");
+  if (plan.rc.milestone !== existing.milestone) changed.push("milestone");
   if (plan.rc.name !== existing.name) changed.push("name");
   const removedReferences = existing.references.filter((ref) => !plan.references.includes(ref));
   if (removedReferences.length > 0) changed.push("references-removed");
@@ -315,7 +315,7 @@ async function collectCarriedFromCandidates(args: {
     const filePath = path.join(args.rcDirAbs, entry.name);
     const parsed = await parseRCFile(filePath);
     if (!parsed) continue;
-    if (`${parsed.version.replace(/\./g, "_")}_${parsed.name}` === args.targetRCId) continue;
+    if (`M${parsed.milestone}_${parsed.name}` === args.targetRCId) continue;
 
     const lines = parsed.raw.split(/\r?\n/);
     let inOutOfScope = false;
@@ -343,7 +343,7 @@ async function collectCarriedFromCandidates(args: {
 
       const itemText = body.replace(/`[^`]+`/g, "").replace(/(?:→|->)\s*[A-Z0-9_]+\.?/, "").trim();
       candidates.push({
-        sourceRC: `${parsed.version.replace(/\./g, "_")}_${parsed.name}`,
+        sourceRC: `M${parsed.milestone}_${parsed.name}`,
         item: itemText,
         sourceLine: i + 1,
       });
@@ -435,7 +435,7 @@ function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
       ? plan.rc.status
       : plan.rc.status;
 
-  lines.push(`# v${plan.rc.version} — ${plan.rc.name}`);
+  lines.push(`# M${plan.rc.milestone} — ${plan.rc.name}`);
   lines.push(`Status: ${status}`);
   lines.push(`Last Updated: ${today}`);
 

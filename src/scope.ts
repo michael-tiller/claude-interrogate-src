@@ -141,7 +141,7 @@ export async function generateScope(
 
   for (const rc of input.plan.rcs) {
     const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-      version: rc.version,
+      milestone: rc.milestone,
       name: rc.name,
     });
     const rcAbs = path.resolve(rcDirAbs, filename);
@@ -209,7 +209,7 @@ export function detectCycles(edges: { from: string; to: string }[]): string[][] 
 
 function validateScopePlan(plan: ConfirmedScopePlan): void {
   for (const rc of plan.rcs) {
-    if (!rc.id || !rc.version || !rc.name) {
+    if (!rc.id || rc.milestone === undefined || rc.milestone === null || !rc.name) {
       throw new ScopeError("invalid-rc", `RC missing required fields: ${JSON.stringify(rc)}`);
     }
   }
@@ -239,14 +239,14 @@ async function enforceShippedScopeLock(input: GenerateScopeInput): Promise<void>
 
   for (const row of existingIndex.rcRows) {
     if (row.status.toLowerCase() !== "shipped") continue;
-    const existingId = `${row.version.replace(/\./g, "_")}_${row.name}`;
+    const existingId = `M${row.milestone}_${row.name}`;
     const proposed = input.plan.rcs.find(
-      (rc) => rc.id === existingId || (rc.version === row.version && rc.name === row.name),
+      (rc) => rc.id === existingId || (rc.milestone === row.milestone && rc.name === row.name),
     );
     if (!proposed) continue;
 
     const changed: ShippedLockChangedField[] = [];
-    if (proposed.version !== row.version) changed.push("version");
+    if (proposed.milestone !== row.milestone) changed.push("milestone");
     if (proposed.name !== row.name) changed.push("name");
     if (proposed.marketingWaypoint !== row.marketing && row.marketing !== "—") {
       changed.push("marketing-waypoint");
@@ -278,12 +278,11 @@ function proposeRCsFromConcepts(concepts: ConceptDocSummary[]): RCMetadata[] {
   const filtered = concepts.filter((c) => c.anchorSource === "Concept" || !c.anchorSource);
   const sources = filtered.length > 0 ? filtered : concepts;
   return sources.map((concept, idx) => {
-    const minor = idx + 2;
-    const version = `0.${minor}.0`;
+    const milestone = idx + 1;
     const name = deriveRCName(concept.title || concept.path);
     return {
-      id: `${version.replace(/\./g, "_")}_${name}`,
-      version,
+      id: `M${milestone}_${name}`,
+      milestone,
       name,
       status: "Stub",
       anchors: [{ kind: "Concept", path: concept.path }],
@@ -302,7 +301,7 @@ async function proposeRCsFromExisting(
   const rcs: RCMetadata[] = [];
   for (const row of existingIndex.rcRows) {
     const filename = renderRCFilename(config.rcNamingScheme, {
-      version: row.version,
+      milestone: row.milestone,
       name: row.name,
     });
     const rcAbs = path.join(rcDirAbs, filename);
@@ -312,8 +311,8 @@ async function proposeRCsFromExisting(
       .map((ref) => ({ kind: "Concept" as AnchorSource, path: ref }));
 
     rcs.push({
-      id: `${row.version.replace(/\./g, "_")}_${row.name}`,
-      version: row.version,
+      id: `M${row.milestone}_${row.name}`,
+      milestone: row.milestone,
       name: row.name,
       status: row.status,
       anchors: anchors && anchors.length > 0 ? anchors : [{ kind: "Inline" as AnchorSource }],
@@ -424,18 +423,18 @@ async function computeDriftSummary(args: {
 
   const shippedRCs = args.existingIndex.rcRows
     .filter((row) => row.status.toLowerCase() === "shipped")
-    .map((row) => `${row.version.replace(/\./g, "_")}_${row.name}`);
+    .map((row) => `M${row.milestone}_${row.name}`);
 
   const rcsMissingFromIndex: string[] = [];
   for (const row of args.existingIndex.rcRows) {
     const filename = renderRCFilename(args.roadmapConfig.rcNamingScheme, {
-      version: row.version,
+      milestone: row.milestone,
       name: row.name,
     });
     const rcAbs = path.join(args.rcDirAbs, filename);
     const exists = await fileExists(rcAbs);
     if (!exists) {
-      rcsMissingFromIndex.push(`${row.version.replace(/\./g, "_")}_${row.name}`);
+      rcsMissingFromIndex.push(`M${row.milestone}_${row.name}`);
     }
   }
 
@@ -508,7 +507,7 @@ function buildScopeQuestions(
       id: "waypoints",
       theme: "Marketing waypoints",
       question: `For each marketing waypoint (${waypointList}), state the target RC and a one-line rationale.`,
-      rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions.",
+      rationale: "Marketing waypoints are decoupled from milestone ordering but anchor to specific RCs.",
     });
   }
 
@@ -543,14 +542,14 @@ function renderRoadmapIndex(
   lines.push(`RC: ${plan.minPlayWaypoint.rcId}. Criterion: ${plan.minPlayWaypoint.criterion}`);
   lines.push("");
   lines.push("## Release Candidates");
-  lines.push("| Version | Name | Status | Anchor | Marketing |");
+  lines.push("| Milestone | Name | Status | Anchor | Marketing |");
   lines.push("|---|---|---|---|---|");
-  const orderedRCs = [...plan.rcs].sort((a, b) => compareSemver(a.version, b.version));
+  const orderedRCs = [...plan.rcs].sort((a, b) => a.milestone - b.milestone);
   for (const rc of orderedRCs) {
     const anchorString =
       rc.anchors.map((a) => a.path ?? a.kind).join(", ") || "—";
     const marketing = rc.marketingWaypoint ?? "—";
-    lines.push(`| ${rc.version} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
+    lines.push(`| M${rc.milestone} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
   }
   lines.push("");
   lines.push("## Prerequisite Chain");
@@ -586,7 +585,7 @@ function renderRCStub(
   existing: Awaited<ReturnType<typeof parseRCFile>>,
 ): string {
   const lines: string[] = [];
-  lines.push(`# v${rc.version} — ${rc.name}`);
+  lines.push(`# M${rc.milestone} — ${rc.name}`);
   lines.push(`Status: ${rc.status}`);
   lines.push(`Last Updated: ${today}`);
   lines.push("");
@@ -686,15 +685,6 @@ function resolveDocsExclusions(input: AnalyzeScopeInput): {
 function isInsideDir(target: string, base: string): boolean {
   const rel = path.relative(base, target);
   return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
-}
-
-function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.split(".").map((n) => Number(n));
-  const [aMajor, aMinor, aPatch] = parse(a);
-  const [bMajor, bMinor, bPatch] = parse(b);
-  if (aMajor !== bMajor) return aMajor - bMajor;
-  if (aMinor !== bMinor) return aMinor - bMinor;
-  return aPatch - bPatch;
 }
 
 function formatIsoDate(date: Date): string {

@@ -8,7 +8,7 @@ export declare function validateRCName(name: string): void;
 export declare function validateNamingScheme(template: string): void;
 export declare function renderRCName(rawName: string): string;
 export declare function renderRCFilename(template: string, meta: {
-    version: string;
+    milestone: number;
     name: string;
 }): string;
 export declare function assertWithinDir(targetPath: string, allowedBase: string): Promise<void>;

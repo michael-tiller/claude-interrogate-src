@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.6] - 2026-05-28
+
+### Changed (breaking, pre-1.0)
+
+- **Decoupled milestones from SemVer in the roadmap data model.** Versions are about compatibility at release time; milestones are about what gets built when. Conflating them let dependency-ordering wear SemVer's costume, which biased every roadmap toward indie-game-style version-as-content-milestone planning. The fix:
+  - `RCMetadata.version: string` → `milestone: number`. Same for `ReservedSlot` and `ParsedRoadmapRCRow`.
+  - Default `rcNamingScheme` is now `M{milestone}_{NAME}.md` (was `{major}_{minor}_{patch}_{NAME}.md`). Required placeholders are now `{milestone}` and `{NAME}`.
+  - RC ID format is now `M<n>_<NAME>` (e.g., `M8_QUESTS`), not `<major>_<minor>_<patch>_<NAME>` (e.g., `0_8_0_QUESTS`).
+  - `ShippedLockChangedField` "version" enum value → "milestone".
+  - Roadmap table column heading "Version" → "Milestone".
+  - RC stub file headers `# v{version} — {NAME}` → `# M{milestone} — {NAME}`.
+  - Reserved slots are keyed by integer `milestone`, not SemVer string. Default `reservedSlots` is `[]` (no implied "milestone 1 = first stable").
+  - `compareSemver` removed; RC ordering is now numeric milestone sort.
+- The waypoints interview rationale no longer mentions "version numbers"; it speaks in terms of milestone ordering.
+
+### Out of scope for this release
+
+- **Migration tool for existing roadmaps.** Pre-existing `roadmap.md` files using the old `Version` column / SemVer-shaped RC IDs will not parse against 0.1.6. There are no known external roadmaps to migrate (interrogate is pre-1.0 and pre-adoption); a `/migrate-roadmap` flow that normalizes old roadmaps to the new schema is tracked for a future release. The general principle: where interrogate's flows can adopt the house style automatically (as `redress` already does for prose), the same should apply to schema migrations.
+
 ## [0.1.5] - 2026-05-28
 
 ### Changed

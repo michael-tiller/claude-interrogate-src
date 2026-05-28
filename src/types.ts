@@ -81,7 +81,7 @@ export interface SummaryReport {
 export type AnchorSource = "Concept" | "Plan" | "ADR" | "Inline" | string;
 
 export interface ReservedSlot {
-  version: string;
+  milestone: number;
   purpose: string;
 }
 
@@ -103,7 +103,7 @@ export interface RCAnchor {
 
 export interface RCMetadata {
   id: string;
-  version: string;
+  milestone: number;
   name: string;
   status: "Stub" | "Active" | "Shipped" | string;
   anchors: RCAnchor[];
@@ -155,7 +155,7 @@ export type ShippedLockChangedField =
   | "targeted"
   | "definitionOfDone"
   | "anchors"
-  | "version"
+  | "milestone"
   | "name"
   | "marketing-waypoint"
   | "edges"
@@ -278,7 +278,7 @@ export interface TaskoutStartResult {
 }
 
 export interface ParsedRoadmapRCRow {
-  version: string;
+  milestone: number;
   name: string;
   status: string;
   anchor?: string;
@@ -297,7 +297,7 @@ export interface ParsedRoadmapIndex {
 
 export interface ParsedRC {
   path: string;
-  version: string;
+  milestone: number;
   name: string;
   status: string;
   lastUpdated?: string;

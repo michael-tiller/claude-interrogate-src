@@ -25,29 +25,29 @@ const SAMPLE_INDEX = `# Sample Project Roadmap
 The project anchors on [core_loop.md](./Concept/core_loop.md).
 
 ## MIN PLAY Waypoint
-RC: 0_9_0_DUNGEONS. Criterion: core loop testable end-to-end.
+RC: M9_DUNGEONS. Criterion: core loop testable end-to-end.
 
 ## Release Candidates
-| Version | Name | Status | Anchor | Marketing |
+| Milestone | Name | Status | Anchor | Marketing |
 |---|---|---|---|---|
-| 0.2.0 | CORE | Active | Concept/core_loop.md | — |
-| 0.8.0 | QUESTS | Stub | Concept/quests.md | Wishlist |
-| 1.0.0 | RELEASE_READINESS | Stub | Inline | Launch |
+| M2 | CORE | Active | Concept/core_loop.md | — |
+| M8 | QUESTS | Stub | Concept/quests.md | Wishlist |
+| M10 | RELEASE_READINESS | Stub | Inline | Launch |
 
 ## Prerequisite Chain
-- 0_2_0_CORE → 0_4_0_COLONY (foundation)
-- 0_4_0_COLONY → 0_8_0_QUESTS (dispatch needs colony)
+- M2_CORE → M4_COLONY (foundation)
+- M4_COLONY → M8_QUESTS (dispatch needs colony)
 
 ## Marketing Waypoints
-- **Wishlist**: target after 0.5.0. Rationale: visible-progress milestone.
-- **Early Access**: target after 0.9.0. Rationale: MIN PLAY reached.
-- **Launch**: target at 1.0.0.
+- **Wishlist**: target at M5. Rationale: visible-progress milestone.
+- **Early Access**: target at M9. Rationale: MIN PLAY reached.
+- **Launch**: target at M10.
 
 ## Unmapped Concepts
 - \`Concept/research_only.md\` — research-only.
 `;
 
-const SAMPLE_RC = `# Sample v0.8.0 — QUESTS
+const SAMPLE_RC = `# Sample M8 — QUESTS
 Status: Active
 Last Updated: 2026-05-12
 
@@ -103,12 +103,12 @@ describe("parseRoadmapIndex", () => {
     const parsed = await parseRoadmapIndex(indexPath);
     expect(parsed).not.toBeNull();
     expect(parsed!.thesis?.anchorDoc).toBe("./Concept/core_loop.md");
-    expect(parsed!.minPlayWaypoint?.rcId).toBe("0_9_0_DUNGEONS");
-    expect(parsed!.rcRows.map((row) => row.version)).toEqual(["0.2.0", "0.8.0", "1.0.0"]);
+    expect(parsed!.minPlayWaypoint?.rcId).toBe("M9_DUNGEONS");
+    expect(parsed!.rcRows.map((row) => row.milestone)).toEqual([2, 8, 10]);
     expect(parsed!.rcRows[0].status).toBe("Active");
     expect(parsed!.rcRows[2].name).toBe("RELEASE_READINESS");
     expect(parsed!.prerequisiteChain).toHaveLength(2);
-    expect(parsed!.prerequisiteChain[0].from).toBe("0_2_0_CORE");
+    expect(parsed!.prerequisiteChain[0].from).toBe("M2_CORE");
     expect(parsed!.marketingWaypoints.map((w) => w.name)).toEqual([
       "Wishlist",
       "Early Access",
@@ -136,12 +136,12 @@ describe("parseRCFile", () => {
   it("extracts status, DoD, targeted (with checkbox state), blockers, references", async () => {
     const dir = await makeTempDir();
     await mkdir(path.join(dir, "Roadmap"));
-    const rcPath = path.join(dir, "Roadmap", "0_8_0_QUESTS.md");
+    const rcPath = path.join(dir, "Roadmap", "M8_QUESTS.md");
     await writeFile(rcPath, SAMPLE_RC, "utf8");
 
     const parsed = await parseRCFile(rcPath);
     expect(parsed).not.toBeNull();
-    expect(parsed!.version).toBe("0.8.0");
+    expect(parsed!.milestone).toBe(8);
     expect(parsed!.name).toBe("QUESTS");
     expect(parsed!.status).toBe("Active");
     expect(parsed!.lastUpdated).toBe("2026-05-12");

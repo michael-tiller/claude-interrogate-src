@@ -22030,10 +22030,10 @@ async function loadInterrogateConfig(cwd) {
 // dist/path-safety.js
 import path8 from "node:path";
 import { realpath } from "node:fs/promises";
-var RC_ID_PATTERN = /^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$/;
+var RC_ID_PATTERN = /^M[0-9]+_[A-Z][A-Z0-9_]*$/;
 var RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
-var REQUIRED_PLACEHOLDERS = ["{major}", "{minor}", "{patch}", "{NAME}"];
-var KNOWN_PLACEHOLDERS = /* @__PURE__ */ new Set(["{major}", "{minor}", "{patch}", "{NAME}"]);
+var REQUIRED_PLACEHOLDERS = ["{milestone}", "{NAME}"];
+var KNOWN_PLACEHOLDERS = /* @__PURE__ */ new Set(["{milestone}", "{NAME}"]);
 var PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 var PathSafetyError = class extends Error {
   field;
@@ -22070,7 +22070,7 @@ function validateRelativePath(input, field) {
 }
 function validateRCId(id) {
   if (typeof id !== "string" || !RC_ID_PATTERN.test(id)) {
-    throw new PathSafetyError("rc.id", `must match ^[0-9]+_[0-9]+_[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. 0_8_0_QUESTS), got: ${id}`);
+    throw new PathSafetyError("rc.id", `must match ^M[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. M8_QUESTS), got: ${id}`);
   }
 }
 function validateRCName(name) {
@@ -22109,12 +22109,11 @@ function validateNamingScheme(template) {
 }
 function renderRCFilename(template, meta3) {
   validateNamingScheme(template);
-  const semverMatch = meta3.version.match(/^(\d+)\.(\d+)\.(\d+)$/);
-  if (!semverMatch) {
-    throw new PathSafetyError("rc.version", `must be MAJOR.MINOR.PATCH SemVer, got: ${meta3.version}`);
+  if (!Number.isInteger(meta3.milestone) || meta3.milestone < 0) {
+    throw new PathSafetyError("rc.milestone", `must be a non-negative integer, got: ${meta3.milestone}`);
   }
   validateRCName(meta3.name);
-  const rendered = template.replace(/\{major\}/g, semverMatch[1]).replace(/\{minor\}/g, semverMatch[2]).replace(/\{patch\}/g, semverMatch[3]).replace(/\{NAME\}/g, meta3.name);
+  const rendered = template.replace(/\{milestone\}/g, String(meta3.milestone)).replace(/\{NAME\}/g, meta3.name);
   validateRelativePath(rendered, "renderedRCFilename");
   if (/[\\/]/.test(rendered)) {
     throw new PathSafetyError("renderedRCFilename", `rendered filename must not contain path separators, got: ${rendered}`);
@@ -22154,15 +22153,12 @@ async function assertWithinDir(targetPath, allowedBase) {
 }
 
 // dist/roadmap-config.js
-var SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 var DEFAULT_ROADMAP_CONFIG = Object.freeze({
   indexFile: "roadmap.md",
   rcDir: "Roadmap",
-  rcNamingScheme: "{major}_{minor}_{patch}_{NAME}.md",
+  rcNamingScheme: "M{milestone}_{NAME}.md",
   techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
-  reservedSlots: [
-    { version: "1.0.0", purpose: "First stable release" }
-  ],
+  reservedSlots: [],
   marketingWaypoints: [],
   anchorSources: ["Concept", "Plan", "ADR"]
 });
@@ -22203,21 +22199,21 @@ function validateRoadmapConfig(config2) {
   if (!Array.isArray(config2.reservedSlots)) {
     throw new RoadmapConfigError("roadmap.reservedSlots: must be an array");
   }
-  const seenVersions = /* @__PURE__ */ new Set();
+  const seenMilestones = /* @__PURE__ */ new Set();
   for (const slot of config2.reservedSlots) {
     if (!slot || typeof slot !== "object") {
       throw new RoadmapConfigError("roadmap.reservedSlots: each entry must be an object");
     }
-    if (typeof slot.version !== "string" || !SEMVER_PATTERN.test(slot.version)) {
-      throw new RoadmapConfigError(`roadmap.reservedSlots: invalid SemVer version: ${String(slot.version)}`);
+    if (!Number.isInteger(slot.milestone) || slot.milestone < 0) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: milestone must be a non-negative integer, got: ${String(slot.milestone)}`);
     }
     if (typeof slot.purpose !== "string" || slot.purpose.length === 0) {
-      throw new RoadmapConfigError(`roadmap.reservedSlots: purpose must be a non-empty string for version ${slot.version}`);
+      throw new RoadmapConfigError(`roadmap.reservedSlots: purpose must be a non-empty string for milestone ${slot.milestone}`);
     }
-    if (seenVersions.has(slot.version)) {
-      throw new RoadmapConfigError(`roadmap.reservedSlots: duplicate version ${slot.version}`);
+    if (seenMilestones.has(slot.milestone)) {
+      throw new RoadmapConfigError(`roadmap.reservedSlots: duplicate milestone ${slot.milestone}`);
     }
-    seenVersions.add(slot.version);
+    seenMilestones.add(slot.milestone);
   }
   if (!Array.isArray(config2.marketingWaypoints)) {
     throw new RoadmapConfigError("roadmap.marketingWaypoints: must be an array");
@@ -22273,7 +22269,7 @@ var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 var BULLET_PATTERN = /^- (.+)$/;
 var STATUS_PATTERN = /^Status:\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
-var RC_HEADER_PATTERN = /^#\s+.*v(\d+\.\d+\.\d+)\s+—\s+(.+?)\s*$/m;
+var RC_HEADER_PATTERN = /^#\s+.*M(\d+)\s+—\s+(.+?)\s*$/m;
 var BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
 var SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
 var TABLE_DIVIDER_PATTERN = /^\s*\|?\s*:?-{2,}.*$/;
@@ -22300,14 +22296,14 @@ async function parseRCFile(absolutePath) {
   const raw = await readFile4(absolutePath, "utf8");
   const sections = collectSections(raw);
   const headerMatch = raw.match(RC_HEADER_PATTERN);
-  const version2 = headerMatch?.[1] ?? "";
+  const milestone = headerMatch?.[1] ? Number.parseInt(headerMatch[1], 10) : 0;
   const rawName = headerMatch?.[2] ?? path10.basename(absolutePath, ".md");
   const name = normalizeRCNameFromHeader(rawName);
   const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
   const lastUpdated = raw.match(LAST_UPDATED_PATTERN)?.[1]?.trim();
   return {
     path: absolutePath,
-    version: version2,
+    milestone,
     name,
     status,
     lastUpdated,
@@ -22441,12 +22437,13 @@ function parseReleaseCandidates(sections) {
       });
       continue;
     }
-    const version2 = cells[columnIndex.version] ?? "";
-    if (!/^\d+\.\d+\.\d+$/.test(version2)) {
+    const milestoneCell = cells[columnIndex.milestone] ?? "";
+    const milestoneMatch = milestoneCell.match(/^M?(\d+)$/);
+    if (!milestoneMatch) {
       continue;
     }
     rows.push({
-      version: version2,
+      milestone: Number.parseInt(milestoneMatch[1], 10),
       name: cells[columnIndex.name] ?? "",
       status: cells[columnIndex.status] ?? "",
       anchor: cells[columnIndex.anchor],
@@ -22689,7 +22686,7 @@ async function generateScope(input) {
   await mkdir2(rcDirAbs, { recursive: true });
   for (const rc of input.plan.rcs) {
     const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-      version: rc.version,
+      milestone: rc.milestone,
       name: rc.name
     });
     const rcAbs = path11.resolve(rcDirAbs, filename);
@@ -22749,7 +22746,7 @@ function detectCycles(edges) {
 }
 function validateScopePlan(plan) {
   for (const rc of plan.rcs) {
-    if (!rc.id || !rc.version || !rc.name) {
+    if (!rc.id || rc.milestone === void 0 || rc.milestone === null || !rc.name) {
       throw new ScopeError("invalid-rc", `RC missing required fields: ${JSON.stringify(rc)}`);
     }
   }
@@ -22775,13 +22772,13 @@ async function enforceShippedScopeLock(input) {
   for (const row of existingIndex.rcRows) {
     if (row.status.toLowerCase() !== "shipped")
       continue;
-    const existingId = `${row.version.replace(/\./g, "_")}_${row.name}`;
-    const proposed = input.plan.rcs.find((rc) => rc.id === existingId || rc.version === row.version && rc.name === row.name);
+    const existingId = `M${row.milestone}_${row.name}`;
+    const proposed = input.plan.rcs.find((rc) => rc.id === existingId || rc.milestone === row.milestone && rc.name === row.name);
     if (!proposed)
       continue;
     const changed = [];
-    if (proposed.version !== row.version)
-      changed.push("version");
+    if (proposed.milestone !== row.milestone)
+      changed.push("milestone");
     if (proposed.name !== row.name)
       changed.push("name");
     if (proposed.marketingWaypoint !== row.marketing && row.marketing !== "\u2014") {
@@ -22808,12 +22805,11 @@ function proposeRCsFromConcepts(concepts) {
   const filtered = concepts.filter((c) => c.anchorSource === "Concept" || !c.anchorSource);
   const sources = filtered.length > 0 ? filtered : concepts;
   return sources.map((concept, idx) => {
-    const minor = idx + 2;
-    const version2 = `0.${minor}.0`;
+    const milestone = idx + 1;
     const name = deriveRCName(concept.title || concept.path);
     return {
-      id: `${version2.replace(/\./g, "_")}_${name}`,
-      version: version2,
+      id: `M${milestone}_${name}`,
+      milestone,
       name,
       status: "Stub",
       anchors: [{ kind: "Concept", path: concept.path }],
@@ -22826,15 +22822,15 @@ async function proposeRCsFromExisting(existingIndex, rcDirAbs, config2, conceptB
   const rcs = [];
   for (const row of existingIndex.rcRows) {
     const filename = renderRCFilename(config2.rcNamingScheme, {
-      version: row.version,
+      milestone: row.milestone,
       name: row.name
     });
     const rcAbs = path11.join(rcDirAbs, filename);
     const parsed = await parseRCFile(rcAbs);
     const anchors = parsed?.references?.filter((ref) => conceptByPath.has(path11.resolve(rcDirAbs, "..", ref))).map((ref) => ({ kind: "Concept", path: ref }));
     rcs.push({
-      id: `${row.version.replace(/\./g, "_")}_${row.name}`,
-      version: row.version,
+      id: `M${row.milestone}_${row.name}`,
+      milestone: row.milestone,
       name: row.name,
       status: row.status,
       anchors: anchors && anchors.length > 0 ? anchors : [{ kind: "Inline" }],
@@ -22920,17 +22916,17 @@ async function computeDriftSummary(args) {
     const candidates = [doc.path, path11.basename(doc.path)];
     return !candidates.some((candidate) => mappedDocPaths.has(candidate));
   }).map((doc) => doc.path);
-  const shippedRCs = args.existingIndex.rcRows.filter((row) => row.status.toLowerCase() === "shipped").map((row) => `${row.version.replace(/\./g, "_")}_${row.name}`);
+  const shippedRCs = args.existingIndex.rcRows.filter((row) => row.status.toLowerCase() === "shipped").map((row) => `M${row.milestone}_${row.name}`);
   const rcsMissingFromIndex = [];
   for (const row of args.existingIndex.rcRows) {
     const filename = renderRCFilename(args.roadmapConfig.rcNamingScheme, {
-      version: row.version,
+      milestone: row.milestone,
       name: row.name
     });
     const rcAbs = path11.join(args.rcDirAbs, filename);
     const exists = await fileExists2(rcAbs);
     if (!exists) {
-      rcsMissingFromIndex.push(`${row.version.replace(/\./g, "_")}_${row.name}`);
+      rcsMissingFromIndex.push(`M${row.milestone}_${row.name}`);
     }
   }
   const cycles = detectCycles(args.dagCandidates.map((c) => ({ from: c.from, to: c.to })));
@@ -22987,7 +22983,7 @@ function buildScopeQuestions(mode, rcs, candidates, marketingWaypoints) {
       id: "waypoints",
       theme: "Marketing waypoints",
       question: `For each marketing waypoint (${waypointList}), state the target RC and a one-line rationale.`,
-      rationale: "Marketing waypoints are decoupled from version numbers but anchor to RC positions."
+      rationale: "Marketing waypoints are decoupled from milestone ordering but anchor to specific RCs."
     });
   }
   return questions;
@@ -23016,13 +23012,13 @@ function renderRoadmapIndex(plan, today, config2) {
   lines.push(`RC: ${plan.minPlayWaypoint.rcId}. Criterion: ${plan.minPlayWaypoint.criterion}`);
   lines.push("");
   lines.push("## Release Candidates");
-  lines.push("| Version | Name | Status | Anchor | Marketing |");
+  lines.push("| Milestone | Name | Status | Anchor | Marketing |");
   lines.push("|---|---|---|---|---|");
-  const orderedRCs = [...plan.rcs].sort((a, b) => compareSemver(a.version, b.version));
+  const orderedRCs = [...plan.rcs].sort((a, b) => a.milestone - b.milestone);
   for (const rc of orderedRCs) {
     const anchorString = rc.anchors.map((a) => a.path ?? a.kind).join(", ") || "\u2014";
     const marketing = rc.marketingWaypoint ?? "\u2014";
-    lines.push(`| ${rc.version} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
+    lines.push(`| M${rc.milestone} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
   }
   lines.push("");
   lines.push("## Prerequisite Chain");
@@ -23052,7 +23048,7 @@ function renderRoadmapIndex(plan, today, config2) {
 }
 function renderRCStub(rc, today, plan, existing) {
   const lines = [];
-  lines.push(`# v${rc.version} \u2014 ${rc.name}`);
+  lines.push(`# M${rc.milestone} \u2014 ${rc.name}`);
   lines.push(`Status: ${rc.status}`);
   lines.push(`Last Updated: ${today}`);
   lines.push("");
@@ -23144,16 +23140,6 @@ function isInsideDir(target, base) {
   const rel = path11.relative(base, target);
   return rel !== "" && !rel.startsWith("..") && !path11.isAbsolute(rel);
 }
-function compareSemver(a, b) {
-  const parse3 = (v) => v.split(".").map((n) => Number(n));
-  const [aMajor, aMinor, aPatch] = parse3(a);
-  const [bMajor, bMinor, bPatch] = parse3(b);
-  if (aMajor !== bMajor)
-    return aMajor - bMajor;
-  if (aMinor !== bMinor)
-    return aMinor - bMinor;
-  return aPatch - bPatch;
-}
 function formatIsoDate(date4) {
   return date4.toISOString().slice(0, 10);
 }
@@ -23194,13 +23180,13 @@ async function analyzeTaskout(input) {
   if (!parsedIndex) {
     throw new TaskoutError("no-roadmap", `Failed to parse ${indexAbs}.`);
   }
-  const row = parsedIndex.rcRows.find((r) => `${r.version.replace(/\./g, "_")}_${r.name}` === input.rcId);
+  const row = parsedIndex.rcRows.find((r) => `M${r.milestone}_${r.name}` === input.rcId);
   if (!row) {
     throw new TaskoutError("rc-not-in-index", `RC ${input.rcId} is not declared in ${input.roadmapConfig.indexFile}. Run /roadmap maintenance to add it first.`);
   }
   const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    version: row.version,
+    milestone: row.milestone,
     name: row.name
   });
   const rcAbs = path12.resolve(rcDirAbs, filename);
@@ -23210,7 +23196,7 @@ async function analyzeTaskout(input) {
   const existingRC = rcFileExists ? await parseRCFile(rcAbs) : null;
   const rc = {
     id: input.rcId,
-    version: row.version,
+    milestone: row.milestone,
     name: row.name,
     status: existingRC?.status ?? row.status,
     anchors: row.anchor && row.anchor !== "\u2014" ? [{ kind: "Concept", path: row.anchor }] : [{ kind: "Inline" }],
@@ -23247,7 +23233,7 @@ async function generateTaskout(input) {
   validateRCId(input.plan.rc.id);
   const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    version: input.plan.rc.version,
+    milestone: input.plan.rc.milestone,
     name: input.plan.rc.name
   });
   const rcAbs = path12.resolve(rcDirAbs, filename);
@@ -23285,8 +23271,8 @@ async function enforceShippedTaskoutLock(rcAbs, plan) {
   if (!sameArray(existing.definitionOfDone, plan.definitionOfDone)) {
     changed.push("definitionOfDone");
   }
-  if (plan.rc.version !== existing.version)
-    changed.push("version");
+  if (plan.rc.milestone !== existing.milestone)
+    changed.push("milestone");
   if (plan.rc.name !== existing.name)
     changed.push("name");
   const removedReferences = existing.references.filter((ref) => !plan.references.includes(ref));
@@ -23390,7 +23376,7 @@ async function collectCarriedFromCandidates(args) {
     const parsed = await parseRCFile(filePath);
     if (!parsed)
       continue;
-    if (`${parsed.version.replace(/\./g, "_")}_${parsed.name}` === args.targetRCId)
+    if (`M${parsed.milestone}_${parsed.name}` === args.targetRCId)
       continue;
     const lines = parsed.raw.split(/\r?\n/);
     let inOutOfScope = false;
@@ -23420,7 +23406,7 @@ async function collectCarriedFromCandidates(args) {
         continue;
       const itemText = body.replace(/`[^`]+`/g, "").replace(/(?:→|->)\s*[A-Z0-9_]+\.?/, "").trim();
       candidates.push({
-        sourceRC: `${parsed.version.replace(/\./g, "_")}_${parsed.name}`,
+        sourceRC: `M${parsed.milestone}_${parsed.name}`,
         item: itemText,
         sourceLine: i + 1
       });
@@ -23495,7 +23481,7 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
 function renderTaskout(plan, today) {
   const lines = [];
   const status = plan.overrides.find((o) => o.changedFields.includes("status-downgrade")) ? plan.rc.status : plan.rc.status;
-  lines.push(`# v${plan.rc.version} \u2014 ${plan.rc.name}`);
+  lines.push(`# M${plan.rc.milestone} \u2014 ${plan.rc.name}`);
   lines.push(`Status: ${status}`);
   lines.push(`Last Updated: ${today}`);
   const override = plan.overrides.find((o) => o.kind === "shipped-lock-bypass");

@@ -57,10 +57,10 @@ describe("validateRelativePath", () => {
 });
 
 describe("validateRCId", () => {
-  it("accepts dirigible-shaped ids", () => {
-    expect(() => validateRCId("0_8_0_QUESTS")).not.toThrow();
-    expect(() => validateRCId("1_0_0_RELEASE_READINESS")).not.toThrow();
-    expect(() => validateRCId("0_95_0_SHOWCASE")).not.toThrow();
+  it("accepts well-shaped ids", () => {
+    expect(() => validateRCId("M8_QUESTS")).not.toThrow();
+    expect(() => validateRCId("M10_RELEASE_READINESS")).not.toThrow();
+    expect(() => validateRCId("M95_SHOWCASE")).not.toThrow();
   });
 
   it("rejects ids with path separators", () => {
@@ -102,31 +102,31 @@ describe("validateRCName", () => {
 
 describe("validateNamingScheme", () => {
   it("accepts the default template", () => {
-    expect(() => validateNamingScheme("{major}_{minor}_{patch}_{NAME}.md")).not.toThrow();
+    expect(() => validateNamingScheme("M{milestone}_{NAME}.md")).not.toThrow();
   });
 
   it("rejects templates missing a required placeholder", () => {
-    expect(() => validateNamingScheme("{major}_{minor}_{NAME}.md")).toThrow(PathSafetyError);
+    expect(() => validateNamingScheme("M{milestone}.md")).toThrow(PathSafetyError);
   });
 
   it("rejects unknown placeholders", () => {
-    expect(() => validateNamingScheme("{major}_{minor}_{patch}_{NAME}_{epoch}.md")).toThrow(
+    expect(() => validateNamingScheme("M{milestone}_{NAME}_{epoch}.md")).toThrow(
       PathSafetyError,
     );
   });
 
   it("rejects templates without .md suffix", () => {
-    expect(() => validateNamingScheme("{major}_{minor}_{patch}_{NAME}")).toThrow(PathSafetyError);
+    expect(() => validateNamingScheme("M{milestone}_{NAME}")).toThrow(PathSafetyError);
   });
 
   it("rejects path separators in literal segments", () => {
-    expect(() => validateNamingScheme("Roadmap/{major}_{minor}_{patch}_{NAME}.md")).toThrow(
+    expect(() => validateNamingScheme("Roadmap/M{milestone}_{NAME}.md")).toThrow(
       PathSafetyError,
     );
   });
 
   it("rejects parent traversal in literal segments", () => {
-    expect(() => validateNamingScheme("..{major}_{minor}_{patch}_{NAME}.md")).toThrow(
+    expect(() => validateNamingScheme("..M{milestone}_{NAME}.md")).toThrow(
       PathSafetyError,
     );
   });
@@ -135,20 +135,20 @@ describe("validateNamingScheme", () => {
 describe("renderRCFilename", () => {
   it("renders default template", () => {
     expect(
-      renderRCFilename("{major}_{minor}_{patch}_{NAME}.md", { version: "0.8.0", name: "QUESTS" }),
-    ).toBe("0_8_0_QUESTS.md");
+      renderRCFilename("M{milestone}_{NAME}.md", { milestone: 8, name: "QUESTS" }),
+    ).toBe("M8_QUESTS.md");
   });
 
-  it("rejects non-semver versions", () => {
+  it("rejects non-integer milestones", () => {
     expect(() =>
-      renderRCFilename("{major}_{minor}_{patch}_{NAME}.md", { version: "0.8", name: "QUESTS" }),
+      renderRCFilename("M{milestone}_{NAME}.md", { milestone: 0.5 as unknown as number, name: "QUESTS" }),
     ).toThrow(PathSafetyError);
   });
 
   it("rejects invalid RC name during render", () => {
     expect(() =>
-      renderRCFilename("{major}_{minor}_{patch}_{NAME}.md", {
-        version: "0.8.0",
+      renderRCFilename("M{milestone}_{NAME}.md", {
+        milestone: 8,
         name: "quests",
       }),
     ).toThrow(PathSafetyError);

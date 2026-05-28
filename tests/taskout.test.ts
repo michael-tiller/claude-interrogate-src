@@ -35,7 +35,7 @@ async function writeIndex(root: string, rows: string[]): Promise<void> {
     "# Project Roadmap",
     "",
     "## Release Candidates",
-    "| Version | Name | Status | Anchor | Marketing |",
+    "| Milestone | Name | Status | Anchor | Marketing |",
     "|---|---|---|---|---|",
     ...rows,
     "",
@@ -48,7 +48,7 @@ describe("analyzeTaskout — mode detection", () => {
     const { root, docsDir } = await makeProject();
     await expect(
       analyzeTaskout({
-        rcId: "0_8_0_QUESTS",
+        rcId: "M8_QUESTS",
         docsDir,
         outputDir: root,
         roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -59,10 +59,10 @@ describe("analyzeTaskout — mode detection", () => {
 
   it("refuses when RC is not in the index", async () => {
     const { root, docsDir } = await makeProject();
-    await writeIndex(root, ["| 0.2.0 | CORE | Active | Concept/core.md | — |"]);
+    await writeIndex(root, ["| M2 | CORE | Active | Concept/core.md | — |"]);
     await expect(
       analyzeTaskout({
-        rcId: "0_8_0_QUESTS",
+        rcId: "M8_QUESTS",
         docsDir,
         outputDir: root,
         roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -73,9 +73,9 @@ describe("analyzeTaskout — mode detection", () => {
 
   it("returns bootstrap-rc mode when index has the RC but file is missing", async () => {
     const { root, docsDir } = await makeProject();
-    await writeIndex(root, ["| 0.8.0 | QUESTS | Stub | Concept/quests.md | — |"]);
+    await writeIndex(root, ["| M8 | QUESTS | Stub | Concept/quests.md | — |"]);
     const result = await analyzeTaskout({
-      rcId: "0_8_0_QUESTS",
+      rcId: "M8_QUESTS",
       docsDir,
       outputDir: root,
       roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -86,14 +86,14 @@ describe("analyzeTaskout — mode detection", () => {
 
   it("returns maintenance mode when both index and file exist", async () => {
     const { root, docsDir } = await makeProject();
-    await writeIndex(root, ["| 0.8.0 | QUESTS | Active | Concept/quests.md | — |"]);
+    await writeIndex(root, ["| M8 | QUESTS | Active | Concept/quests.md | — |"]);
     await writeFile(
-      path.join(root, "Roadmap", "0_8_0_QUESTS.md"),
-      "# v0.8.0 — QUESTS\nStatus: Active\n\n## Theme\nT\n",
+      path.join(root, "Roadmap", "M8_QUESTS.md"),
+      "# M8 — QUESTS\nStatus: Active\n\n## Theme\nT\n",
       "utf8",
     );
     const result = await analyzeTaskout({
-      rcId: "0_8_0_QUESTS",
+      rcId: "M8_QUESTS",
       docsDir,
       outputDir: root,
       roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -106,21 +106,21 @@ describe("analyzeTaskout — mode detection", () => {
 describe("analyzeTaskout — tech-debt blockers", () => {
   it("picks up items with the target RC in their blocks tag", async () => {
     const { root, docsDir } = await makeProject();
-    await writeIndex(root, ["| 0.8.0 | QUESTS | Stub | Concept/quests.md | — |"]);
+    await writeIndex(root, ["| M8 | QUESTS | Stub | Concept/quests.md | — |"]);
     await writeFile(
       path.join(root, "Roadmap", "TECHNICAL_DEBT.md"),
       [
         "# Tech Debt",
-        "- [ ] Item A. `blocks: 0_8_0_QUESTS`.",
-        "- [ ] Item B. `blocks: 1_0_0_RELEASE_READINESS, 0_8_0_QUESTS`.",
-        "- [ ] Item C. `blocks: 0_7_0_COMBAT`.",
+        "- [ ] Item A. `blocks: M8_QUESTS`.",
+        "- [ ] Item B. `blocks: M10_RELEASE_READINESS, M8_QUESTS`.",
+        "- [ ] Item C. `blocks: M7_COMBAT`.",
         "",
       ].join("\n"),
       "utf8",
     );
 
     const result = await analyzeTaskout({
-      rcId: "0_8_0_QUESTS",
+      rcId: "M8_QUESTS",
       docsDir,
       outputDir: root,
       roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -137,25 +137,25 @@ describe("analyzeTaskout — carried-from candidates", () => {
   it("picks up Out-of-Scope items targeting this RC from sibling RCs", async () => {
     const { root, docsDir } = await makeProject();
     await writeIndex(root, [
-      "| 0.7.0 | COMBAT | Active | Concept/combat.md | — |",
-      "| 0.8.0 | QUESTS | Stub | Concept/quests.md | — |",
+      "| M7 | COMBAT | Active | Concept/combat.md | — |",
+      "| M8 | QUESTS | Stub | Concept/quests.md | — |",
     ]);
     await writeFile(
-      path.join(root, "Roadmap", "0_7_0_COMBAT.md"),
+      path.join(root, "Roadmap", "M7_COMBAT.md"),
       [
-        "# v0.7.0 — COMBAT",
+        "# M7 — COMBAT",
         "Status: Active",
         "",
         "## Out of Scope",
-        "- [ ] Brigandine squad UI. `→ 0_8_0_QUESTS`. Pure polish.",
-        "- [ ] Possession swap. `→ 0_8_0_QUESTS`.",
+        "- [ ] Brigandine squad UI. `→ M8_QUESTS`. Pure polish.",
+        "- [ ] Possession swap. `→ M8_QUESTS`.",
         "",
       ].join("\n"),
       "utf8",
     );
 
     const result = await analyzeTaskout({
-      rcId: "0_8_0_QUESTS",
+      rcId: "M8_QUESTS",
       docsDir,
       outputDir: root,
       roadmapConfig: DEFAULT_ROADMAP_CONFIG,
@@ -163,7 +163,7 @@ describe("analyzeTaskout — carried-from candidates", () => {
     });
 
     expect(result.carriedFromCandidates).toHaveLength(2);
-    expect(result.carriedFromCandidates[0].sourceRC).toBe("0_7_0_COMBAT");
+    expect(result.carriedFromCandidates[0].sourceRC).toBe("M7_COMBAT");
   });
 });
 
@@ -189,8 +189,8 @@ describe("generateTaskout — mode mismatch and writes", () => {
   it("refuses when caller says maintenance but RC file does not exist", async () => {
     const { root } = await makeProject();
     const plan = buildTaskoutPlan({
-      id: "0_8_0_QUESTS",
-      version: "0.8.0",
+      id: "M8_QUESTS",
+      milestone: 8,
       name: "QUESTS",
       status: "Stub",
       anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
@@ -210,8 +210,8 @@ describe("generateTaskout — mode mismatch and writes", () => {
   it("writes the RC file directly in bootstrap-rc mode", async () => {
     const { root } = await makeProject();
     const plan = buildTaskoutPlan({
-      id: "0_8_0_QUESTS",
-      version: "0.8.0",
+      id: "M8_QUESTS",
+      milestone: 8,
       name: "QUESTS",
       status: "Stub",
       anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
@@ -226,23 +226,23 @@ describe("generateTaskout — mode mismatch and writes", () => {
       clock: () => new Date("2026-05-28T00:00:00Z"),
     });
 
-    expect(result.path).toMatch(/0_8_0_QUESTS\.md$/);
+    expect(result.path).toMatch(/M8_QUESTS\.md$/);
     expect(result.path).not.toMatch(/draft/);
     const written = await readFile(result.path, "utf8");
-    expect(written).toContain("# v0.8.0 — QUESTS");
+    expect(written).toContain("# M8 — QUESTS");
     expect(written).toContain("Last Updated: 2026-05-28");
   });
 
   it("writes a .draft.md sibling in maintenance mode", async () => {
     const { root } = await makeProject();
     await writeFile(
-      path.join(root, "Roadmap", "0_8_0_QUESTS.md"),
-      "# v0.8.0 — QUESTS\nStatus: Active\n\n## Theme\nOld theme.\n",
+      path.join(root, "Roadmap", "M8_QUESTS.md"),
+      "# M8 — QUESTS\nStatus: Active\n\n## Theme\nOld theme.\n",
       "utf8",
     );
     const plan = buildTaskoutPlan({
-      id: "0_8_0_QUESTS",
-      version: "0.8.0",
+      id: "M8_QUESTS",
+      milestone: 8,
       name: "QUESTS",
       status: "Active",
       anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
@@ -255,9 +255,9 @@ describe("generateTaskout — mode mismatch and writes", () => {
       mode: "maintenance",
       roadmapConfig: DEFAULT_ROADMAP_CONFIG,
     });
-    expect(result.path).toMatch(/0_8_0_QUESTS\.draft\.md$/);
+    expect(result.path).toMatch(/M8_QUESTS\.draft\.md$/);
     const original = await readFile(
-      path.join(root, "Roadmap", "0_8_0_QUESTS.md"),
+      path.join(root, "Roadmap", "M8_QUESTS.md"),
       "utf8",
     );
     expect(original).toContain("Old theme.");
@@ -268,9 +268,9 @@ describe("generateTaskout — Shipped diff enforcement", () => {
   async function setupShippedRC(): Promise<Project> {
     const project = await makeProject();
     await writeFile(
-      path.join(project.root, "Roadmap", "0_2_0_CORE.md"),
+      path.join(project.root, "Roadmap", "M2_CORE.md"),
       [
-        "# v0.2.0 — CORE",
+        "# M2 — CORE",
         "Status: Shipped",
         "Last Updated: 2026-04-01",
         "",
@@ -305,8 +305,8 @@ describe("generateTaskout — Shipped diff enforcement", () => {
     const { root } = await setupShippedRC();
     const plan: ConfirmedTaskoutPlan = {
       rc: {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Shipped",
         anchors: [{ kind: "Concept", path: "Concept/core.md" }],
@@ -339,8 +339,8 @@ describe("generateTaskout — Shipped diff enforcement", () => {
     const { root } = await setupShippedRC();
     const plan: ConfirmedTaskoutPlan = {
       rc: {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Shipped",
         anchors: [{ kind: "Concept", path: "Concept/core.md" }],
@@ -374,8 +374,8 @@ describe("generateTaskout — Shipped diff enforcement", () => {
     const { root } = await setupShippedRC();
     const plan: ConfirmedTaskoutPlan = {
       rc: {
-        id: "0_2_0_CORE",
-        version: "0.2.0",
+        id: "M2_CORE",
+        milestone: 2,
         name: "CORE",
         status: "Shipped",
         anchors: [{ kind: "Concept", path: "Concept/core.md" }],
@@ -396,7 +396,7 @@ describe("generateTaskout — Shipped diff enforcement", () => {
       overrides: [
         {
           kind: "shipped-lock-bypass",
-          rcId: "0_2_0_CORE",
+          rcId: "M2_CORE",
           changedFields: ["definitionOfDone"],
           reason: "restating DoD for clarity after ship-time audit",
         },
