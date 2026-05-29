@@ -7,6 +7,10 @@ The interview is mildly adversarial by design: it asks for rejected alternatives
 
 Current release history lives in [CHANGELOG.md](CHANGELOG.md).
 
+## Part of Captain SDLC
+
+claude-interrogate is the **design blade** of [Captain SDLC](https://github.com/LlamaBrain/captain-sdlc), an AI-driven SDLC tooling pipeline: independent tools that share conventions (trace schemas, fenced-block formats), not code, so each can be adopted on its own. Sibling tools: [ai-test-harness](https://github.com/LlamaBrain/ai-test-harness) (QA), [claude-release](https://github.com/LlamaBrain/claude-release) (release), and [MToolKit](https://github.com/michael-tiller/MToolKit) (runtime foundation).
+
 ## What It Does
 
 - `interrogate <concept>` runs an interactive interview in a TTY and writes the resulting doc.
