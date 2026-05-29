@@ -6,3 +6,4 @@
 *.tsbuildinfo
 .claude/settings.local.json
 npm-debug.log*
+scratch.md
