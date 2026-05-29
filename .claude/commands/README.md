@@ -27,5 +27,6 @@ Available commands:
 - `/audit-docs [docs-dir]`
 - `/sync-docs [docs-dir]`
 - `/adr [title]`
+- `/scratch [topic]`
 
 They are designed to prefer the MCP prompts exposed by this repo's server and fall back to direct MCP tool calls or the local CLI when necessary.

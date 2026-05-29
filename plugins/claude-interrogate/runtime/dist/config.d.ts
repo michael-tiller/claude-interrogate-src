@@ -1,6 +1,8 @@
 export interface InterrogateConfig {
     docsDir?: string;
+    adrDir?: string;
     styleTemplate?: string;
+    scratchFile?: string;
     roadmap?: Record<string, unknown>;
 }
 export declare function loadInterrogateConfig(cwd: string): Promise<{

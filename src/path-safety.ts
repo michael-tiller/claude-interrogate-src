@@ -1,10 +1,10 @@
 import path from "node:path";
 import { realpath } from "node:fs/promises";
 
-const RC_ID_PATTERN = /^M[0-9]+_[A-Z][A-Z0-9_]*$/;
+const RC_ID_PATTERN = /^(?:M|MRC)[0-9]+_[A-Z][A-Z0-9_]*$/;
 const RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const REQUIRED_PLACEHOLDERS = ["{milestone}", "{NAME}"] as const;
-const KNOWN_PLACEHOLDERS = new Set(["{milestone}", "{NAME}"]);
+const KNOWN_PLACEHOLDERS = new Set(["{prefix}", "{milestone}", "{NAME}"]);
 const PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 
 export class PathSafetyError extends Error {
@@ -50,7 +50,7 @@ export function validateRCId(id: string): void {
   if (typeof id !== "string" || !RC_ID_PATTERN.test(id)) {
     throw new PathSafetyError(
       "rc.id",
-      `must match ^M[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. M8_QUESTS), got: ${id}`
+      `must match ^(M|MRC)[0-9]+_[A-Z][A-Z0-9_]*$ (e.g. M8_QUESTS or MRC1_LAUNCH), got: ${id}`
     );
   }
 }
@@ -127,7 +127,7 @@ export function renderRCName(rawName: string): string {
 
 export function renderRCFilename(
   template: string,
-  meta: { milestone: number; name: string }
+  meta: { milestone: number; name: string; kind?: "build" | "release-candidate" }
 ): string {
   validateNamingScheme(template);
 
@@ -137,7 +137,9 @@ export function renderRCFilename(
 
   validateRCName(meta.name);
 
+  const prefix = meta.kind === "release-candidate" ? "MRC" : "M";
   const rendered = template
+    .replace(/\{prefix\}/g, prefix)
     .replace(/\{milestone\}/g, String(meta.milestone))
     .replace(/\{NAME\}/g, meta.name);
 

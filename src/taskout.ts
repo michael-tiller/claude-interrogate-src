@@ -68,7 +68,7 @@ export async function analyzeTaskout(
   }
 
   const row = parsedIndex.rcRows.find(
-    (r) => `M${r.milestone}_${r.name}` === input.rcId,
+    (r) => `${r.kind === "release-candidate" ? "MRC" : "M"}${r.milestone}_${r.name}` === input.rcId,
   );
   if (!row) {
     throw new TaskoutError(
@@ -315,7 +315,7 @@ async function collectCarriedFromCandidates(args: {
     const filePath = path.join(args.rcDirAbs, entry.name);
     const parsed = await parseRCFile(filePath);
     if (!parsed) continue;
-    if (`M${parsed.milestone}_${parsed.name}` === args.targetRCId) continue;
+    if (`${parsed.kind === "release-candidate" ? "MRC" : "M"}${parsed.milestone}_${parsed.name}` === args.targetRCId) continue;
 
     const lines = parsed.raw.split(/\r?\n/);
     let inOutOfScope = false;
@@ -343,7 +343,7 @@ async function collectCarriedFromCandidates(args: {
 
       const itemText = body.replace(/`[^`]+`/g, "").replace(/(?:→|->)\s*[A-Z0-9_]+\.?/, "").trim();
       candidates.push({
-        sourceRC: `M${parsed.milestone}_${parsed.name}`,
+        sourceRC: `${parsed.kind === "release-candidate" ? "MRC" : "M"}${parsed.milestone}_${parsed.name}`,
         item: itemText,
         sourceLine: i + 1,
       });
@@ -435,7 +435,7 @@ function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
       ? plan.rc.status
       : plan.rc.status;
 
-  lines.push(`# M${plan.rc.milestone} — ${plan.rc.name}`);
+  lines.push(`# ${plan.rc.kind === "release-candidate" ? "MRC" : "M"}${plan.rc.milestone} — ${plan.rc.name}`);
   lines.push(`Status: ${status}`);
   lines.push(`Last Updated: ${today}`);
 

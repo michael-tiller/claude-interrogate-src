@@ -22,7 +22,7 @@ export async function analyzeTaskout(input) {
     if (!parsedIndex) {
         throw new TaskoutError("no-roadmap", `Failed to parse ${indexAbs}.`);
     }
-    const row = parsedIndex.rcRows.find((r) => `M${r.milestone}_${r.name}` === input.rcId);
+    const row = parsedIndex.rcRows.find((r) => `${r.kind === "release-candidate" ? "MRC" : "M"}${r.milestone}_${r.name}` === input.rcId);
     if (!row) {
         throw new TaskoutError("rc-not-in-index", `RC ${input.rcId} is not declared in ${input.roadmapConfig.indexFile}. Run /roadmap maintenance to add it first.`);
     }
@@ -220,7 +220,7 @@ async function collectCarriedFromCandidates(args) {
         const parsed = await parseRCFile(filePath);
         if (!parsed)
             continue;
-        if (`M${parsed.milestone}_${parsed.name}` === args.targetRCId)
+        if (`${parsed.kind === "release-candidate" ? "MRC" : "M"}${parsed.milestone}_${parsed.name}` === args.targetRCId)
             continue;
         const lines = parsed.raw.split(/\r?\n/);
         let inOutOfScope = false;
@@ -250,7 +250,7 @@ async function collectCarriedFromCandidates(args) {
                 continue;
             const itemText = body.replace(/`[^`]+`/g, "").replace(/(?:→|->)\s*[A-Z0-9_]+\.?/, "").trim();
             candidates.push({
-                sourceRC: `M${parsed.milestone}_${parsed.name}`,
+                sourceRC: `${parsed.kind === "release-candidate" ? "MRC" : "M"}${parsed.milestone}_${parsed.name}`,
                 item: itemText,
                 sourceLine: i + 1,
             });
@@ -327,7 +327,7 @@ function renderTaskout(plan, today) {
     const status = plan.overrides.find((o) => o.changedFields.includes("status-downgrade"))
         ? plan.rc.status
         : plan.rc.status;
-    lines.push(`# M${plan.rc.milestone} — ${plan.rc.name}`);
+    lines.push(`# ${plan.rc.kind === "release-candidate" ? "MRC" : "M"}${plan.rc.milestone} — ${plan.rc.name}`);
     lines.push(`Status: ${status}`);
     lines.push(`Last Updated: ${today}`);
     const override = plan.overrides.find((o) => o.kind === "shipped-lock-bypass");

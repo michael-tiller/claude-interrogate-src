@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.7] - 2026-05-28
+
+### Added
+
+- **MRC prefix notation for release-candidate milestones.** RCs now carry an optional `kind` field (`"build"` | `"release-candidate"`) that drives a `{prefix}` placeholder in the roadmap naming scheme:
+  - `kind: "build"` (default) → prefix `M` → ID `M{n}_{NAME}`, filename `M{n}_{NAME}.md`, table row `| M{n} | ... |`, RC stub header `# M{n} — NAME`.
+  - `kind: "release-candidate"` → prefix `MRC` → ID `MRC{n}_{NAME}`, filename `MRC{n}_{NAME}.md`, table row `| MRC{n} | ... |`, RC stub header `# MRC{n} — NAME`.
+- MRC denotes the design-side marker for a pop-corks-moment milestone (release-readiness checkpoint). Versions remain orthogonal — SemVer is process; milestones are design. The first MRC is `MRC1` (first release candidate); subsequent MRCs cover DLC / major-revision pop-corks moments (`MRC2`, `MRC3`, ...).
+- `rcPrefix(kind)` helper exported from `types.ts`; consumers don't need to ternary-inline the prefix choice.
+- Default `rcNamingScheme` changed from `M{milestone}_{NAME}.md` to `{prefix}{milestone}_{NAME}.md`. The new `{prefix}` placeholder resolves to `M` or `MRC` from the RC's kind at render time. Backward compatible — existing `M{milestone}_{NAME}.md` templates still work (no `{prefix}` substitution, just literal `M`).
+- `validateRCId` accepts both `M{n}_{NAME}` and `MRC{n}_{NAME}` patterns. Roadmap-parser detects `MRC` prefix in both RC stub headers and the Milestone column of the roadmap table, populating `kind` on parsed rows automatically.
+- End-to-end test in `scope.test.ts`: a plan with one build-kind and one release-candidate-kind RC produces both `M{n}` and `MRC{n}` outputs in the right places (filenames, IDs, table rows, stub headers).
+
+### Changed
+
+- Auto-proposed RCs from concept docs (`proposeRCsFromConcepts`) explicitly set `kind: "build"`. Release-candidate milestones are authored intentionally (a DoD / pop-corks marker), never auto-proposed from docs.
+- `ParsedRC`, `ParsedRoadmapRCRow`, and `RCMetadata` all gain an optional `kind` field. Tools reading roadmaps in maintenance mode preserve the kind through the round-trip.
+
 ## [0.1.6] - 2026-05-28
 
 ### Changed (breaking, pre-1.0)

@@ -10,5 +10,6 @@ export declare function renderRCName(rawName: string): string;
 export declare function renderRCFilename(template: string, meta: {
     milestone: number;
     name: string;
+    kind?: "build" | "release-candidate";
 }): string;
 export declare function assertWithinDir(targetPath: string, allowedBase: string): Promise<void>;

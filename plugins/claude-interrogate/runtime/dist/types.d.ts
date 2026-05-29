@@ -87,10 +87,20 @@ export interface RCAnchor {
     path?: string;
     thesis?: string;
 }
+export type RCKind = "build" | "release-candidate";
+/**
+ * The filename / id prefix for an RC of the given kind.
+ * - `"build"` (or undefined) → `"M"` — a regular work milestone.
+ * - `"release-candidate"` → `"MRC"` — a pop-corks-moment milestone, the design-side
+ *   marker for a release-readiness checkpoint. Versions remain orthogonal (SemVer is
+ *   process; milestones are design).
+ */
+export declare function rcPrefix(kind?: RCKind): string;
 export interface RCMetadata {
     id: string;
     milestone: number;
     name: string;
+    kind?: RCKind;
     status: "Stub" | "Active" | "Shipped" | string;
     anchors: RCAnchor[];
     blocks: string[];
@@ -240,6 +250,7 @@ export interface TaskoutStartResult {
 export interface ParsedRoadmapRCRow {
     milestone: number;
     name: string;
+    kind?: RCKind;
     status: string;
     anchor?: string;
     marketing?: string;
@@ -267,6 +278,7 @@ export interface ParsedRoadmapIndex {
 export interface ParsedRC {
     path: string;
     milestone: number;
+    kind?: RCKind;
     name: string;
     status: string;
     lastUpdated?: string;

@@ -31,7 +31,9 @@ const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 const BULLET_PATTERN = /^- (.+)$/;
 const STATUS_PATTERN = /^Status:\s+(.+)$/m;
 const LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
-const RC_HEADER_PATTERN = /^#\s+.*M(\d+)\s+—\s+(.+?)\s*$/m;
+// Captures the prefix (MRC for release-candidate, M for build) so the parsed RC
+// reports the correct kind. MRC is checked first because it's a strict prefix of M.
+const RC_HEADER_PATTERN = /^#\s+.*\b(MRC|M)(\d+)\s+—\s+(.+?)\s*$/m;
 const BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
 const SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
 const TABLE_DIVIDER_PATTERN = /^\s*\|?\s*:?-{2,}.*$/;
@@ -64,9 +66,12 @@ export async function parseRCFile(absolutePath: string): Promise<ParsedRC | null
   const sections = collectSections(raw);
 
   const headerMatch = raw.match(RC_HEADER_PATTERN);
-  const milestone = headerMatch?.[1] ? Number.parseInt(headerMatch[1], 10) : 0;
-  const rawName = headerMatch?.[2] ?? path.basename(absolutePath, ".md");
+  const prefix = headerMatch?.[1];
+  const milestone = headerMatch?.[2] ? Number.parseInt(headerMatch[2], 10) : 0;
+  const rawName = headerMatch?.[3] ?? path.basename(absolutePath, ".md");
   const name = normalizeRCNameFromHeader(rawName);
+  const kind: "build" | "release-candidate" =
+    prefix === "MRC" ? "release-candidate" : "build";
 
   const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
   const lastUpdated = raw.match(LAST_UPDATED_PATTERN)?.[1]?.trim();
@@ -74,6 +79,7 @@ export async function parseRCFile(absolutePath: string): Promise<ParsedRC | null
   return {
     path: absolutePath,
     milestone,
+    kind,
     name,
     status,
     lastUpdated,
@@ -236,12 +242,18 @@ function parseReleaseCandidates(sections: SectionMap): ParsedRoadmapRCRow[] {
       continue;
     }
     const milestoneCell = cells[columnIndex.milestone] ?? "";
-    const milestoneMatch = milestoneCell.match(/^M?(\d+)$/);
+    // Match MRC (release-candidate kind) before M (build kind) since MRC is a
+    // strict prefix of M. The bare-digit fallback exists for forward-compat with
+    // any roadmap that omits the prefix; treats it as build.
+    const milestoneMatch = milestoneCell.match(/^(MRC|M)?(\d+)$/);
     if (!milestoneMatch) {
       continue;
     }
+    const milestoneKind: "build" | "release-candidate" =
+      milestoneMatch[1] === "MRC" ? "release-candidate" : "build";
     rows.push({
-      milestone: Number.parseInt(milestoneMatch[1], 10),
+      milestone: Number.parseInt(milestoneMatch[2], 10),
+      kind: milestoneKind,
       name: cells[columnIndex.name] ?? "",
       status: cells[columnIndex.status] ?? "",
       anchor: cells[columnIndex.anchor],

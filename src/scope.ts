@@ -13,6 +13,7 @@ import {
   InterviewQuestion,
   RCMetadata,
   RoadmapConfig,
+  rcPrefix,
   ScopeOverride,
   ScopeStartResult,
   ShippedLockChangedField,
@@ -143,6 +144,7 @@ export async function generateScope(
     const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
       milestone: rc.milestone,
       name: rc.name,
+      kind: rc.kind,
     });
     const rcAbs = path.resolve(rcDirAbs, filename);
     const rcTarget =
@@ -239,7 +241,7 @@ async function enforceShippedScopeLock(input: GenerateScopeInput): Promise<void>
 
   for (const row of existingIndex.rcRows) {
     if (row.status.toLowerCase() !== "shipped") continue;
-    const existingId = `M${row.milestone}_${row.name}`;
+    const existingId = `${rcPrefix(row.kind)}${row.milestone}_${row.name}`;
     const proposed = input.plan.rcs.find(
       (rc) => rc.id === existingId || (rc.milestone === row.milestone && rc.name === row.name),
     );
@@ -280,9 +282,12 @@ function proposeRCsFromConcepts(concepts: ConceptDocSummary[]): RCMetadata[] {
   return sources.map((concept, idx) => {
     const milestone = idx + 1;
     const name = deriveRCName(concept.title || concept.path);
+    // Concept-derived RCs are always "build" — release-candidate milestones are
+    // authored explicitly (DoD / pop-corks moments), not auto-proposed from docs.
     return {
-      id: `M${milestone}_${name}`,
+      id: `${rcPrefix("build")}${milestone}_${name}`,
       milestone,
+      kind: "build" as const,
       name,
       status: "Stub",
       anchors: [{ kind: "Concept", path: concept.path }],
@@ -303,6 +308,7 @@ async function proposeRCsFromExisting(
     const filename = renderRCFilename(config.rcNamingScheme, {
       milestone: row.milestone,
       name: row.name,
+      kind: row.kind,
     });
     const rcAbs = path.join(rcDirAbs, filename);
     const parsed = await parseRCFile(rcAbs);
@@ -311,8 +317,9 @@ async function proposeRCsFromExisting(
       .map((ref) => ({ kind: "Concept" as AnchorSource, path: ref }));
 
     rcs.push({
-      id: `M${row.milestone}_${row.name}`,
+      id: `${rcPrefix(row.kind)}${row.milestone}_${row.name}`,
       milestone: row.milestone,
+      kind: row.kind ?? "build",
       name: row.name,
       status: row.status,
       anchors: anchors && anchors.length > 0 ? anchors : [{ kind: "Inline" as AnchorSource }],
@@ -423,18 +430,19 @@ async function computeDriftSummary(args: {
 
   const shippedRCs = args.existingIndex.rcRows
     .filter((row) => row.status.toLowerCase() === "shipped")
-    .map((row) => `M${row.milestone}_${row.name}`);
+    .map((row) => `${rcPrefix(row.kind)}${row.milestone}_${row.name}`);
 
   const rcsMissingFromIndex: string[] = [];
   for (const row of args.existingIndex.rcRows) {
     const filename = renderRCFilename(args.roadmapConfig.rcNamingScheme, {
       milestone: row.milestone,
       name: row.name,
+      kind: row.kind,
     });
     const rcAbs = path.join(args.rcDirAbs, filename);
     const exists = await fileExists(rcAbs);
     if (!exists) {
-      rcsMissingFromIndex.push(`M${row.milestone}_${row.name}`);
+      rcsMissingFromIndex.push(`${rcPrefix(row.kind)}${row.milestone}_${row.name}`);
     }
   }
 
@@ -549,7 +557,7 @@ function renderRoadmapIndex(
     const anchorString =
       rc.anchors.map((a) => a.path ?? a.kind).join(", ") || "—";
     const marketing = rc.marketingWaypoint ?? "—";
-    lines.push(`| M${rc.milestone} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
+    lines.push(`| ${rcPrefix(rc.kind)}${rc.milestone} | ${rc.name} | ${rc.status} | ${anchorString} | ${marketing} |`);
   }
   lines.push("");
   lines.push("## Prerequisite Chain");
@@ -585,7 +593,7 @@ function renderRCStub(
   existing: Awaited<ReturnType<typeof parseRCFile>>,
 ): string {
   const lines: string[] = [];
-  lines.push(`# M${rc.milestone} — ${rc.name}`);
+  lines.push(`# ${rcPrefix(rc.kind)}${rc.milestone} — ${rc.name}`);
   lines.push(`Status: ${rc.status}`);
   lines.push(`Last Updated: ${today}`);
   lines.push("");

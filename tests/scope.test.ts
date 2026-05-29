@@ -180,6 +180,59 @@ describe("generateScope", () => {
     expect(index).toContain("M2");
   });
 
+  it("renders release-candidate RCs with the MRC prefix in filename, id, and roadmap table", async () => {
+    const { root } = await makeProjectDir();
+    const plan = buildPlan([
+      {
+        id: "M1_CORE",
+        milestone: 1,
+        kind: "build",
+        name: "CORE",
+        status: "Stub",
+        anchors: [{ kind: "Concept", path: "Concept/core_loop.md" }],
+        blocks: [],
+        blockedBy: [],
+      },
+      {
+        id: "MRC1_LAUNCH",
+        milestone: 1,
+        kind: "release-candidate",
+        name: "LAUNCH",
+        status: "Stub",
+        anchors: [{ kind: "Inline" }],
+        blocks: [],
+        blockedBy: [],
+      },
+    ]);
+
+    const result = await generateScope({
+      plan,
+      outputDir: root,
+      mode: "bootstrap",
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+      clock: () => new Date("2026-05-29T00:00:00Z"),
+    });
+
+    // Two RCs → roadmap.md + two stubs.
+    expect(result.paths).toHaveLength(3);
+    // Build-kind RC uses M prefix in its stub filename.
+    expect(result.paths.some((p) => p.endsWith("M1_CORE.md"))).toBe(true);
+    // Release-candidate-kind RC uses MRC prefix in its stub filename.
+    expect(result.paths.some((p) => p.endsWith("MRC1_LAUNCH.md"))).toBe(true);
+
+    const index = await readFile(path.join(root, "roadmap.md"), "utf8");
+    // Roadmap table renders the prefix from kind, not a hardcoded "M".
+    expect(index).toContain("| M1 | CORE |");
+    expect(index).toContain("| MRC1 | LAUNCH |");
+
+    // The RC stub headers use the prefix too.
+    const launchStub = await readFile(
+      path.join(root, "Roadmap", "MRC1_LAUNCH.md"),
+      "utf8",
+    );
+    expect(launchStub.startsWith("# MRC1 — LAUNCH")).toBe(true);
+  });
+
   it("writes .draft.md siblings in maintenance mode and never touches originals", async () => {
     const { root } = await makeProjectDir();
     await writeFile(path.join(root, "roadmap.md"), "# Existing roadmap\n", "utf8");

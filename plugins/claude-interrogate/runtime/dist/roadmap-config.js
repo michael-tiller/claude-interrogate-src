@@ -10,7 +10,7 @@ import { PathSafetyError, validateNamingScheme, validateRelativePath } from "./p
 export const DEFAULT_ROADMAP_CONFIG = Object.freeze({
     indexFile: "roadmap.md",
     rcDir: "Roadmap",
-    rcNamingScheme: "M{milestone}_{NAME}.md",
+    rcNamingScheme: "{prefix}{milestone}_{NAME}.md",
     techDebtFile: "Roadmap/TECHNICAL_DEBT.md",
     reservedSlots: [],
     marketingWaypoints: [],

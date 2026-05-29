@@ -3,7 +3,9 @@ import path from "node:path";
 
 export interface InterrogateConfig {
   docsDir?: string;
+  adrDir?: string;
   styleTemplate?: string;
+  scratchFile?: string;
   roadmap?: Record<string, unknown>;
 }
 
