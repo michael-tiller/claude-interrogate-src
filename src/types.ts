@@ -326,6 +326,34 @@ export interface ParsedRC {
   raw: string;
 }
 
+export interface TaskoutExportItem {
+  text: string;
+  checked: boolean;
+  key: string;
+}
+
+export interface TaskoutExportSection {
+  heading: string;
+  key: string;
+  items: TaskoutExportItem[];
+}
+
+export interface TaskoutExportResult {
+  rcId: string;
+  path: string;
+  milestone: number;
+  kind: RCKind;
+  name: string;
+  status: string;
+  lastUpdated?: string;
+  theme?: string;
+  goals: string[];
+  targeted: TaskoutExportSection[];
+  blockersAndDeps: BlockerEntry[];
+  definitionOfDone: string[];
+  references: string[];
+}
+
 export interface ParsedTechDebtItem {
   text: string;
   blocks: string[];

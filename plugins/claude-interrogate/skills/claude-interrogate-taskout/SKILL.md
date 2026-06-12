@@ -9,7 +9,7 @@ Use this skill when the user wants to break a single release candidate into epic
 
 ## Inputs
 
-- `rc_id` (required) — release candidate id, e.g. `0_8_0_QUESTS`.
+- `rc_id` (required) — release candidate id, e.g. `M8_QUESTS`.
 - `docs_dir` (optional) — defaults to `claude-interrogate.json` `docsDir`, then `./docs`.
 - `output_dir` (optional) — project root containing `roadmap.md` and `Roadmap/`; defaults to the current working directory.
 - `style_template_path` (optional) — golden document template, if configured via `styleTemplate`.

@@ -13,13 +13,13 @@ import { designSummarize } from "./summarize.js";
 import { designCrossRefSync } from "./sync.js";
 import { loadRoadmapConfig } from "./roadmap-config.js";
 import { analyzeScope, generateScope } from "./scope.js";
-import { analyzeTaskout, generateTaskout } from "./taskout.js";
+import { analyzeTaskout, exportTaskout, generateTaskout } from "./taskout.js";
 import { ConfirmedScopePlan, ConfirmedTaskoutPlan, TaskoutMode } from "./types.js";
 
 const server = new Server(
   {
     name: "claude-interrogate",
-    version: "0.1.1"
+    version: "0.1.8"
   },
   {
     capabilities: {
@@ -163,6 +163,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           roadmap_config_path: { type: "string" }
         },
         required: ["confirmed_plan", "output_dir", "mode"]
+      }
+    },
+    {
+      name: "design_taskout_export",
+      description:
+        "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          rc_id: { type: "string" },
+          output_dir: { type: "string" }
+        },
+        required: ["rc_id"]
       }
     }
   ]
@@ -995,6 +1008,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
       return {
         content: [{ type: "text", text: JSON.stringify({ path: result.path }, null, 2) }]
+      };
+    }
+    case "design_taskout_export": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await exportTaskout({
+        rcId: String(args?.rc_id ?? ""),
+        outputDir,
+        roadmapConfig: loaded.config
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
       };
     }
     default:

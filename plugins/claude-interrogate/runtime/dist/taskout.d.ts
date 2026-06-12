@@ -1,4 +1,4 @@
-import { ConfirmedTaskoutPlan, RoadmapConfig, TaskoutMode, TaskoutStartResult } from "./types.js";
+import { ConfirmedTaskoutPlan, RoadmapConfig, TaskoutExportResult, TaskoutMode, TaskoutStartResult } from "./types.js";
 export declare class TaskoutError extends Error {
     readonly code: string;
     constructor(code: string, message: string);
@@ -24,3 +24,9 @@ export declare function generateTaskout(input: GenerateTaskoutInput): Promise<{
     path: string;
     content: string;
 }>;
+export interface ExportTaskoutInput {
+    rcId: string;
+    outputDir: string;
+    roadmapConfig: RoadmapConfig;
+}
+export declare function exportTaskout(input: ExportTaskoutInput): Promise<TaskoutExportResult>;

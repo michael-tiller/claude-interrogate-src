@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadDocsRecursive } from "./docs.js";
@@ -98,6 +99,76 @@ export async function generateTaskout(input) {
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, content, "utf8");
     return { path: target, content };
+}
+export async function exportTaskout(input) {
+    validateRCId(input.rcId);
+    const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
+    const kind = idMatch[1] === "MRC" ? "release-candidate" : "build";
+    const milestone = Number(idMatch[2]);
+    const name = idMatch[3];
+    const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
+    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+        milestone,
+        name,
+        kind,
+    });
+    const rcAbs = path.resolve(rcDirAbs, filename);
+    await assertWithinDir(rcAbs, rcDirAbs);
+    if (!(await fileExists(rcAbs))) {
+        throw new TaskoutError("rc-file-not-found", `No RC file at ${rcAbs} for ${input.rcId}. Run /taskout to create it first.`);
+    }
+    const parsed = await parseRCFile(rcAbs);
+    if (!parsed) {
+        throw new TaskoutError("rc-parse-failed", `Failed to parse ${rcAbs}.`);
+    }
+    const slugCounts = new Map();
+    const targeted = parsed.targeted.map((sub) => {
+        const baseSlug = slugifyHeading(sub.heading);
+        const priorUses = slugCounts.get(baseSlug) ?? 0;
+        slugCounts.set(baseSlug, priorUses + 1);
+        const epicKey = priorUses === 0
+            ? `${input.rcId}#${baseSlug}`
+            : `${input.rcId}#${baseSlug}-${priorUses + 1}`;
+        const textOccurrences = new Map();
+        const items = sub.items.map((item) => {
+            const normalized = normalizeItemText(item.text);
+            const occurrence = textOccurrences.get(normalized) ?? 0;
+            textOccurrences.set(normalized, occurrence + 1);
+            // NUL delimiter prevents concatenation-shape collisions between text and occurrence.
+            const digest = createHash("sha1")
+                .update(`${normalized}\0${occurrence}`)
+                .digest("hex")
+                .slice(0, 12);
+            return { text: item.text, checked: item.checked, key: `${epicKey}#${digest}` };
+        });
+        return { heading: sub.heading, key: epicKey, items };
+    });
+    return {
+        rcId: input.rcId,
+        path: rcAbs,
+        milestone,
+        kind,
+        name,
+        status: parsed.status,
+        lastUpdated: parsed.lastUpdated,
+        theme: parsed.theme,
+        goals: parsed.goals,
+        targeted,
+        blockersAndDeps: parsed.blockersAndDeps,
+        definitionOfDone: parsed.definitionOfDone,
+        references: parsed.references,
+    };
+}
+function slugifyHeading(heading) {
+    const slug = heading
+        .normalize("NFKC")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    return slug.length > 0 ? slug : "section";
+}
+function normalizeItemText(text) {
+    return text.normalize("NFKC").trim().replace(/\s+/g, " ");
 }
 async function enforceShippedTaskoutLock(rcAbs, plan) {
     const existing = await parseRCFile(rcAbs);

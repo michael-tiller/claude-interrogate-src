@@ -10,7 +10,7 @@ The user invoked this command with: $ARGUMENTS
 
 ## Instructions
 
-1. Parse the first argument as the RC id (e.g. `0_8_0_QUESTS`). It is required. If missing, list the RC ids declared in `roadmap.md` and ask.
+1. Parse the first argument as the RC id (e.g. `M8_QUESTS`). It is required. If missing, list the RC ids declared in `roadmap.md` and ask.
 2. Parse the optional second argument as the docs directory. Resolve via `claude-interrogate.json` `docsDir`, then `./docs`, then `./sample-docs`.
 3. If config provides `styleTemplate`, pass it through as `style_template_path`.
 4. Output directory defaults to the current working directory. Roadmap conventions come from the `roadmap` block in `claude-interrogate.json` and fall back to dirigible-style defaults.

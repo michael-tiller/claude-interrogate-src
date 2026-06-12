@@ -23175,6 +23175,7 @@ async function fileExists2(target) {
 }
 
 // dist/taskout.js
+import { createHash } from "node:crypto";
 import { mkdir as mkdir3, readdir as readdir2, stat as stat4, writeFile as writeFile4 } from "node:fs/promises";
 import path12 from "node:path";
 var TaskoutError = class extends Error {
@@ -23270,6 +23271,66 @@ async function generateTaskout(input) {
   await mkdir3(path12.dirname(target), { recursive: true });
   await writeFile4(target, content, "utf8");
   return { path: target, content };
+}
+async function exportTaskout(input) {
+  validateRCId(input.rcId);
+  const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
+  const kind = idMatch[1] === "MRC" ? "release-candidate" : "build";
+  const milestone = Number(idMatch[2]);
+  const name = idMatch[3];
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+    milestone,
+    name,
+    kind
+  });
+  const rcAbs = path12.resolve(rcDirAbs, filename);
+  await assertWithinDir(rcAbs, rcDirAbs);
+  if (!await fileExists3(rcAbs)) {
+    throw new TaskoutError("rc-file-not-found", `No RC file at ${rcAbs} for ${input.rcId}. Run /taskout to create it first.`);
+  }
+  const parsed = await parseRCFile(rcAbs);
+  if (!parsed) {
+    throw new TaskoutError("rc-parse-failed", `Failed to parse ${rcAbs}.`);
+  }
+  const slugCounts = /* @__PURE__ */ new Map();
+  const targeted = parsed.targeted.map((sub) => {
+    const baseSlug = slugifyHeading(sub.heading);
+    const priorUses = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, priorUses + 1);
+    const epicKey = priorUses === 0 ? `${input.rcId}#${baseSlug}` : `${input.rcId}#${baseSlug}-${priorUses + 1}`;
+    const textOccurrences = /* @__PURE__ */ new Map();
+    const items = sub.items.map((item) => {
+      const normalized = normalizeItemText(item.text);
+      const occurrence = textOccurrences.get(normalized) ?? 0;
+      textOccurrences.set(normalized, occurrence + 1);
+      const digest = createHash("sha1").update(`${normalized}\0${occurrence}`).digest("hex").slice(0, 12);
+      return { text: item.text, checked: item.checked, key: `${epicKey}#${digest}` };
+    });
+    return { heading: sub.heading, key: epicKey, items };
+  });
+  return {
+    rcId: input.rcId,
+    path: rcAbs,
+    milestone,
+    kind,
+    name,
+    status: parsed.status,
+    lastUpdated: parsed.lastUpdated,
+    theme: parsed.theme,
+    goals: parsed.goals,
+    targeted,
+    blockersAndDeps: parsed.blockersAndDeps,
+    definitionOfDone: parsed.definitionOfDone,
+    references: parsed.references
+  };
+}
+function slugifyHeading(heading) {
+  const slug = heading.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug.length > 0 ? slug : "section";
+}
+function normalizeItemText(text) {
+  return text.normalize("NFKC").trim().replace(/\s+/g, " ");
 }
 async function enforceShippedTaskoutLock(rcAbs, plan) {
   const existing = await parseRCFile(rcAbs);
@@ -23613,7 +23674,7 @@ async function dirExists(target) {
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
-  version: "0.1.1"
+  version: "0.1.8"
 }, {
   capabilities: {
     tools: {},
@@ -23750,6 +23811,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           roadmap_config_path: { type: "string" }
         },
         required: ["confirmed_plan", "output_dir", "mode"]
+      }
+    },
+    {
+      name: "design_taskout_export",
+      description: "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          rc_id: { type: "string" },
+          output_dir: { type: "string" }
+        },
+        required: ["rc_id"]
       }
     }
   ]
@@ -24483,6 +24556,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
       return {
         content: [{ type: "text", text: JSON.stringify({ path: result.path }, null, 2) }]
+      };
+    }
+    case "design_taskout_export": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await exportTaskout({
+        rcId: String(args?.rc_id ?? ""),
+        outputDir,
+        roadmapConfig: loaded.config
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
       };
     }
     default:

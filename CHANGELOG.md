@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.8] - 2026-06-11
+
+### Added
+
+- **`design_taskout_export` MCP tool — tracker-neutral structured export of a single RC taskout file.** Takes `rc_id` (and optional `output_dir`), resolves the RC file directly from the id (no roadmap-index lookup required, so export works even when `roadmap.md` is absent), and returns the parsed RC as JSON: status, theme, goals, targeted sections with checkbox state, blockers, definition of done, and references. The verbatim `raw` document body is deliberately excluded.
+- **Stable per-item keys for external tracker mirrors.** Every `### Targeted` section gets an epic key (`{rcId}#{heading-slug}`, with deterministic `-2`/`-3` suffixes for duplicate headings and a `section` fallback for punctuation-only headings) and every checkbox item gets an item key (`{epicKey}#{12-hex sha1}` over NFKC/whitespace-normalized text plus an occurrence counter, so duplicate item text under one heading still yields distinct, stable keys). Keys are computed deterministically in core so downstream consumers (e.g. the claude-interrogate-clickup companion plugin) never have to re-derive identity.
+
+### Fixed
+
+- MCP server identity version was stale at 0.1.1; now tracks the release version.
+- Taskout command/skill docs still showed pre-0.1.6 SemVer-shaped RC id examples (`0_8_0_QUESTS`) that `validateRCId` rejects; examples updated to `M8_QUESTS` style.
+
 ## [0.1.7] - 2026-05-28
 
 ### Added
