@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.9] - 2026-06-11
+
+### Added
+
+- **`flay` / `flay-auto` commands and `claude-interrogate-flay` skill — a human-assigned task execution harness.** The human assigns one taskout item by its interrogate key; flay conducts it through the existing SDLC stations — Claude Code plan mode, implementation, the project's own verification commands, and a Seam 7 footered commit (`Implements:`/`Completes:`/`Needs-QA:`). `/flay` pauses human-in-the-loop at every phase boundary; `/flay-auto` runs through (harness gates still apply), downgrades to HITL on any verify failure, and defaults its completion footer to `Needs-QA:`. Flay never selects, ranks, or recommends work — assignment is the human's (ADR-0012). Phase state lives in `.captain-sdlc/flay-state.json` (schema_version 1, single object = WIP limit 1 by structure, gitignored), which sibling plugins read advisorily; the outcome line lands in `scratch.md`. Zero new deterministic code — pure orchestration of existing elements.
+
 ## [0.1.8] - 2026-06-11
 
 ### Added

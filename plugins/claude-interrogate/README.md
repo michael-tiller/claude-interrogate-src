@@ -25,6 +25,8 @@ Claude Code commands (namespaced):
 - `/claude-interrogate:adr [title]`
 - `/claude-interrogate:roadmap [docs-dir]`
 - `/claude-interrogate:taskout <rc-id> [docs-dir]`
+- `/claude-interrogate:flay <task-key> [output-dir]`
+- `/claude-interrogate:flay-auto <task-key> [output-dir]`
 - `/claude-interrogate:scratch [topic]`
 
 Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, use the installed skills:

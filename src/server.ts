@@ -19,7 +19,7 @@ import { ConfirmedScopePlan, ConfirmedTaskoutPlan, TaskoutMode } from "./types.j
 const server = new Server(
   {
     name: "claude-interrogate",
-    version: "0.1.8"
+    version: "0.1.9"
   },
   {
     capabilities: {

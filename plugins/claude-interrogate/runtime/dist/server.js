@@ -23674,7 +23674,7 @@ async function dirExists(target) {
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
-  version: "0.1.8"
+  version: "0.1.9"
 }, {
   capabilities: {
     tools: {},

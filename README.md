@@ -184,6 +184,8 @@ What works now:
   - `/audit-docs [docs-dir]`
   - `/sync-docs [docs-dir]`
   - `/adr [title]`
+  - `/flay <task-key> [output-dir]`
+  - `/flay-auto <task-key> [output-dir]`
   - `/scratch [topic]`
 - Claude Code can use plugin-installed slash commands (namespaced); see the install section above.
 - Codex TUI uses bare slash commands (drop the `claude-interrogate:` namespace); see the install section above.
