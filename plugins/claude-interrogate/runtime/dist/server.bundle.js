@@ -22249,7 +22249,7 @@ async function loadRoadmapConfig(cwd) {
 import { readdir as readdir2, readFile as readFile4, stat as stat2, writeFile as writeFile3 } from "node:fs/promises";
 import path10 from "node:path";
 var RC_FILENAME_PATTERN = /^(M|MRC)(\d+)_([A-Z][A-Z0-9_]*)\.md$/;
-var STATUS_PATTERN = /^Status:\s+(.+)$/m;
+var STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 var DASH_CHECKBOX_PATTERN = /^(\s*- \[)(.)(\]\s)/;
 var NUMBERED_CHECKBOX_PATTERN = /^\s*\d+[.)]\s*\[.\]\s/;
 var KNOWN_STATUSES = /* @__PURE__ */ new Set(["stub", "active", "shipped"]);
@@ -22271,11 +22271,8 @@ async function migrateRoadmap(input) {
     throw new RoadmapMigrateError("no-rc-dir", `No RC directory at ${rcDirAbs}. Nothing to migrate.`);
   }
   const indexAlreadyExists = await fileExists(indexAbs);
-  if (apply && indexAlreadyExists) {
-    throw new RoadmapMigrateError("index-exists", `${indexAbs} already exists. Migration refuses to overwrite a roadmap index \u2014 merge by hand or remove it first.`);
-  }
   if (indexAlreadyExists) {
-    warnings.push(`${input.roadmapConfig.indexFile} already exists \u2014 apply will refuse; this dry-run shows what a fresh index would contain.`);
+    warnings.push(`${input.roadmapConfig.indexFile} already exists \u2014 it will be left untouched (the proposed index below is informational; merge by hand if wanted).`);
   }
   const entries = await readdir2(rcDirAbs, { withFileTypes: true });
   const files = [];
@@ -22369,8 +22366,10 @@ async function migrateRoadmap(input) {
   const proposedIndex = renderIndex(files, today);
   let markersNormalized = 0;
   if (apply) {
-    await assertWithinDir(indexAbs, path10.resolve(input.outputDir));
-    await writeFile3(indexAbs, proposedIndex, "utf8");
+    if (!indexAlreadyExists) {
+      await assertWithinDir(indexAbs, path10.resolve(input.outputDir));
+      await writeFile3(indexAbs, proposedIndex, "utf8");
+    }
     if (normalizeMarkers && totalNonstandard > 0) {
       for (const file2 of files) {
         if (file2.nonstandardMarkers.length === 0)
@@ -22459,9 +22458,9 @@ import path12 from "node:path";
 import { readFile as readFile5, stat as stat3 } from "node:fs/promises";
 import path11 from "node:path";
 var SECTION_ALIASES = {
-  thesis: ["1.0 thesis", "thesis"],
-  minPlay: ["min play waypoint", "min play"],
-  releaseCandidates: ["release candidates", "rcs"],
+  thesis: ["1.0 thesis", "thesis", "1.0 promise", "promise"],
+  minPlay: ["min play waypoint", "min play", "min play definition"],
+  releaseCandidates: ["release candidates", "rcs", "milestone sequence", "milestones"],
   prerequisiteChain: ["prerequisite chain", "prerequisites", "dependency chain"],
   marketingWaypoints: ["marketing waypoints", "waypoints"],
   unmappedConcepts: ["unmapped concepts", "unmapped"],
@@ -22476,8 +22475,8 @@ var SECTION_ALIASES = {
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 var BULLET_PATTERN = /^- (.+)$/;
-var STATUS_PATTERN2 = /^Status:\s+(.+)$/m;
-var LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
+var STATUS_PATTERN2 = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
+var LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
 var RC_HEADER_PATTERN = /^#\s+.*\b(MRC|M)(\d+)\s+—\s+(.+?)\s*$/m;
 var BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
 var SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
@@ -22593,7 +22592,7 @@ function collectSections(raw) {
   return { byKey, raw };
 }
 function resolveSectionKey(heading) {
-  const normalized = heading.toLowerCase().trim();
+  const normalized = heading.toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/, "");
   for (const [key, aliases] of Object.entries(SECTION_ALIASES)) {
     if (aliases.includes(normalized)) {
       return key;
@@ -22649,17 +22648,34 @@ function parseReleaseCandidates(sections) {
       });
       continue;
     }
-    const milestoneCell = cells[columnIndex.milestone] ?? "";
+    const milestoneIdx = columnIndex.milestone ?? columnIndex["#"];
+    const milestoneCell = (cells[milestoneIdx] ?? "").replace(/\*/g, "").trim();
     const milestoneMatch = milestoneCell.match(/^(MRC|M)?(\d+)$/);
     if (!milestoneMatch) {
       continue;
     }
     const milestoneKind = milestoneMatch[1] === "MRC" ? "release-candidate" : "build";
+    let name = cells[columnIndex.name] ?? "";
+    if (!name && columnIndex.file !== void 0) {
+      const fileMatch = (cells[columnIndex.file] ?? "").match(/(?:MRC|M)\d+_([A-Z][A-Z0-9_]*)\.md/);
+      name = fileMatch?.[1] ?? "";
+    }
+    let status = cells[columnIndex.status] ?? "";
+    if (!status) {
+      const stageIdx = columnIndex["mrc stage"] ?? columnIndex.stage;
+      const stageCell = (cells[stageIdx] ?? "").replace(/\*/g, "").trim();
+      if (/shipped/i.test(stageCell))
+        status = "Shipped";
+      else if (/active/i.test(stageCell))
+        status = "Active";
+      else
+        status = stageCell;
+    }
     rows.push({
       milestone: Number.parseInt(milestoneMatch[2], 10),
       kind: milestoneKind,
-      name: cells[columnIndex.name] ?? "",
-      status: cells[columnIndex.status] ?? "",
+      name,
+      status,
       anchor: cells[columnIndex.anchor],
       marketing: cells[columnIndex.marketing]
     });
@@ -23882,7 +23898,7 @@ async function dirExists2(target) {
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
-  version: "0.1.10"
+  version: "0.1.11"
 }, {
   capabilities: {
     tools: {},

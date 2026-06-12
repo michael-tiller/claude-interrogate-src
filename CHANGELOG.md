@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.11] - 2026-06-11
+
+### Added
+
+- **House-style parsing tolerance**, driven by the first real adopter layout (dirigible2D):
+  - Bold metadata labels parse everywhere: `**Status**: X` and `**Status:** X` now equal `Status: X` (same for `Last Updated`), in both the RC parser and the migration scanner.
+  - Section aliases: `1.0 Promise` → thesis, `MIN PLAY definition` → MIN PLAY waypoint, `Milestone Sequence` → Release Candidates; trailing parentheticals in headings ("(effort-gated, not time-gated)") are ignored for alias matching.
+  - Index-table column synonyms: `#` → Milestone; a `File` link column (`Roadmap/M02_CRAFTING.md`) supplies the RC name when no Name column exists; a `MRC Stage`/`Stage` column supplies status (shipped/active detected, other stage labels pass through).
+
+### Changed
+
+- `design_roadmap_migrate` apply semantics: the index is **written only when absent** (never overwritten, no error), and marker normalization runs independently — projects that already maintain their own `roadmap.md` can normalize `[~]` markers without touching the index.
+
 ## [0.1.10] - 2026-06-11
 
 ### Added

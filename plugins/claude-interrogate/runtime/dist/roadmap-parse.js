@@ -1,9 +1,9 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 const SECTION_ALIASES = {
-    thesis: ["1.0 thesis", "thesis"],
-    minPlay: ["min play waypoint", "min play"],
-    releaseCandidates: ["release candidates", "rcs"],
+    thesis: ["1.0 thesis", "thesis", "1.0 promise", "promise"],
+    minPlay: ["min play waypoint", "min play", "min play definition"],
+    releaseCandidates: ["release candidates", "rcs", "milestone sequence", "milestones"],
     prerequisiteChain: ["prerequisite chain", "prerequisites", "dependency chain"],
     marketingWaypoints: ["marketing waypoints", "waypoints"],
     unmappedConcepts: ["unmapped concepts", "unmapped"],
@@ -18,8 +18,9 @@ const SECTION_ALIASES = {
 const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 const BULLET_PATTERN = /^- (.+)$/;
-const STATUS_PATTERN = /^Status:\s+(.+)$/m;
-const LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
+// Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
+const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
+const LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
 // Captures the prefix (MRC for release-candidate, M for build) so the parsed RC
 // reports the correct kind. MRC is checked first because it's a strict prefix of M.
 const RC_HEADER_PATTERN = /^#\s+.*\b(MRC|M)(\d+)\s+—\s+(.+?)\s*$/m;
@@ -142,7 +143,9 @@ function collectSections(raw) {
     return { byKey, raw };
 }
 function resolveSectionKey(heading) {
-    const normalized = heading.toLowerCase().trim();
+    // Trailing parentheticals are commentary, not identity:
+    // "Milestone Sequence (effort-gated, not time-gated)" aliases as "milestone sequence".
+    const normalized = heading.toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/, "");
     for (const [key, aliases] of Object.entries(SECTION_ALIASES)) {
         if (aliases.includes(normalized)) {
             return key;
@@ -198,7 +201,9 @@ function parseReleaseCandidates(sections) {
             });
             continue;
         }
-        const milestoneCell = cells[columnIndex.milestone] ?? "";
+        // "#" is a common synonym header for the milestone column.
+        const milestoneIdx = columnIndex.milestone ?? columnIndex["#"];
+        const milestoneCell = (cells[milestoneIdx] ?? "").replace(/\*/g, "").trim();
         // Match MRC (release-candidate kind) before M (build kind) since MRC is a
         // strict prefix of M. The bare-digit fallback exists for forward-compat with
         // any roadmap that omits the prefix; treats it as build.
@@ -207,11 +212,31 @@ function parseReleaseCandidates(sections) {
             continue;
         }
         const milestoneKind = milestoneMatch[1] === "MRC" ? "release-candidate" : "build";
+        // Name: explicit column, else derived from a File-link column
+        // ("Roadmap/M02_CRAFTING.md" -> CRAFTING).
+        let name = cells[columnIndex.name] ?? "";
+        if (!name && columnIndex.file !== undefined) {
+            const fileMatch = (cells[columnIndex.file] ?? "").match(/(?:MRC|M)\d+_([A-Z][A-Z0-9_]*)\.md/);
+            name = fileMatch?.[1] ?? "";
+        }
+        // Status: explicit column, else a stage-style column ("MRC Stage") with
+        // shipped/active detection; other stage labels pass through verbatim.
+        let status = cells[columnIndex.status] ?? "";
+        if (!status) {
+            const stageIdx = columnIndex["mrc stage"] ?? columnIndex.stage;
+            const stageCell = (cells[stageIdx] ?? "").replace(/\*/g, "").trim();
+            if (/shipped/i.test(stageCell))
+                status = "Shipped";
+            else if (/active/i.test(stageCell))
+                status = "Active";
+            else
+                status = stageCell;
+        }
         rows.push({
             milestone: Number.parseInt(milestoneMatch[2], 10),
             kind: milestoneKind,
-            name: cells[columnIndex.name] ?? "",
-            status: cells[columnIndex.status] ?? "",
+            name,
+            status,
             anchor: cells[columnIndex.anchor],
             marketing: cells[columnIndex.marketing],
         });

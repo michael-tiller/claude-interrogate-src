@@ -6,7 +6,8 @@ import { assertWithinDir } from "./path-safety.js";
 // format the roadmap/taskout/export flows expect. Promised as future work in
 // the 0.1.6 release notes; first real customer is a dirigible2D-style layout.
 const RC_FILENAME_PATTERN = /^(M|MRC)(\d+)_([A-Z][A-Z0-9_]*)\.md$/;
-const STATUS_PATTERN = /^Status:\s+(.+)$/m;
+// Bold-tolerant, matching roadmap-parse.ts: "Status: X", "**Status**: X", "**Status:** X".
+const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 // "- [<char>]" where char is not a valid binary marker (space/x/X).
 const DASH_CHECKBOX_PATTERN = /^(\s*- \[)(.)(\]\s)/;
 const NUMBERED_CHECKBOX_PATTERN = /^\s*\d+[.)]\s*\[.\]\s/;
@@ -28,12 +29,12 @@ export async function migrateRoadmap(input) {
     if (!(await dirExists(rcDirAbs))) {
         throw new RoadmapMigrateError("no-rc-dir", `No RC directory at ${rcDirAbs}. Nothing to migrate.`);
     }
+    // The index is never overwritten: apply writes it only when absent. Marker
+    // normalization is independent, so projects that already maintain their own
+    // index (dirigible2D) can still normalize.
     const indexAlreadyExists = await fileExists(indexAbs);
-    if (apply && indexAlreadyExists) {
-        throw new RoadmapMigrateError("index-exists", `${indexAbs} already exists. Migration refuses to overwrite a roadmap index — merge by hand or remove it first.`);
-    }
     if (indexAlreadyExists) {
-        warnings.push(`${input.roadmapConfig.indexFile} already exists — apply will refuse; this dry-run shows what a fresh index would contain.`);
+        warnings.push(`${input.roadmapConfig.indexFile} already exists — it will be left untouched (the proposed index below is informational; merge by hand if wanted).`);
     }
     const entries = await readdir(rcDirAbs, { withFileTypes: true });
     const files = [];
@@ -132,8 +133,10 @@ export async function migrateRoadmap(input) {
     const proposedIndex = renderIndex(files, today);
     let markersNormalized = 0;
     if (apply) {
-        await assertWithinDir(indexAbs, path.resolve(input.outputDir));
-        await writeFile(indexAbs, proposedIndex, "utf8");
+        if (!indexAlreadyExists) {
+            await assertWithinDir(indexAbs, path.resolve(input.outputDir));
+            await writeFile(indexAbs, proposedIndex, "utf8");
+        }
         if (normalizeMarkers && totalNonstandard > 0) {
             for (const file of files) {
                 if (file.nonstandardMarkers.length === 0)
