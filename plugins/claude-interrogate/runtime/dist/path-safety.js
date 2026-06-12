@@ -2,8 +2,11 @@ import path from "node:path";
 import { realpath } from "node:fs/promises";
 const RC_ID_PATTERN = /^(?:M|MRC)[0-9]+_[A-Z][A-Z0-9_]*$/;
 const RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
-const REQUIRED_PLACEHOLDERS = ["{milestone}", "{NAME}"];
 const KNOWN_PLACEHOLDERS = new Set(["{prefix}", "{milestone}", "{NAME}"]);
+// Zero-padded milestone variant, e.g. {milestone:02} renders 1 as "01".
+// Lets projects with M01_CORE.md-style filenames adopt the roadmap flows
+// without renaming files (padding is display-only; RC ids stay unpadded).
+const MILESTONE_PAD_PLACEHOLDER = /^\{milestone:0([1-9])\}$/;
 const PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 export class PathSafetyError extends Error {
     field;
@@ -52,15 +55,17 @@ export function validateNamingScheme(template) {
     if (typeof template !== "string" || template.length === 0) {
         throw new PathSafetyError("roadmap.rcNamingScheme", "must be a non-empty string");
     }
-    for (const required of REQUIRED_PLACEHOLDERS) {
-        if (!template.includes(required)) {
-            throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder ${required}, got: ${template}`);
-        }
-    }
     const found = template.match(PLACEHOLDER_PATTERN) ?? [];
+    const hasMilestone = found.some((placeholder) => placeholder === "{milestone}" || MILESTONE_PAD_PLACEHOLDER.test(placeholder));
+    if (!hasMilestone) {
+        throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder {milestone} (or a padded variant like {milestone:02}), got: ${template}`);
+    }
+    if (!template.includes("{NAME}")) {
+        throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder {NAME}, got: ${template}`);
+    }
     for (const placeholder of found) {
-        if (!KNOWN_PLACEHOLDERS.has(placeholder)) {
-            throw new PathSafetyError("roadmap.rcNamingScheme", `unknown placeholder ${placeholder} (allowed: ${[...KNOWN_PLACEHOLDERS].join(", ")})`);
+        if (!KNOWN_PLACEHOLDERS.has(placeholder) && !MILESTONE_PAD_PLACEHOLDER.test(placeholder)) {
+            throw new PathSafetyError("roadmap.rcNamingScheme", `unknown placeholder ${placeholder} (allowed: ${[...KNOWN_PLACEHOLDERS].join(", ")}, {milestone:0N})`);
         }
     }
     if (!template.endsWith(".md")) {
@@ -94,6 +99,7 @@ export function renderRCFilename(template, meta) {
     const prefix = meta.kind === "release-candidate" ? "MRC" : "M";
     const rendered = template
         .replace(/\{prefix\}/g, prefix)
+        .replace(/\{milestone:0([1-9])\}/g, (_match, width) => String(meta.milestone).padStart(Number(width), "0"))
         .replace(/\{milestone\}/g, String(meta.milestone))
         .replace(/\{NAME\}/g, meta.name);
     validateRelativePath(rendered, "renderedRCFilename");

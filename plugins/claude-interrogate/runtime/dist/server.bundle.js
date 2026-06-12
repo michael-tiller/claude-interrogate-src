@@ -3223,8 +3223,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path13) {
-      let input = path13;
+    function removeDotSegments(path14) {
+      let input = path14;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3423,8 +3423,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path13, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
+        const [path14, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path14 && path14 !== "/" ? path14 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -7158,8 +7158,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path13, errorMaps, issueData } = params;
-  const fullPath = [...path13, ...issueData.path || []];
+  const { data, path: path14, errorMaps, issueData } = params;
+  const fullPath = [...path14, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7274,11 +7274,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path13, key) {
+  constructor(parent, value, path14, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path13;
+    this._path = path14;
     this._key = key;
   }
   get path() {
@@ -10922,10 +10922,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path13) {
-  if (!path13)
+function getElementAtPath(obj, path14) {
+  if (!path14)
     return obj;
-  return path13.reduce((acc, key) => acc?.[key], obj);
+  return path14.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11308,11 +11308,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path13, issues) {
+function prefixIssues(path14, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path13);
+    iss.path.unshift(path14);
     return iss;
   });
 }
@@ -22032,8 +22032,8 @@ import path8 from "node:path";
 import { realpath } from "node:fs/promises";
 var RC_ID_PATTERN = /^(?:M|MRC)[0-9]+_[A-Z][A-Z0-9_]*$/;
 var RC_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
-var REQUIRED_PLACEHOLDERS = ["{milestone}", "{NAME}"];
 var KNOWN_PLACEHOLDERS = /* @__PURE__ */ new Set(["{prefix}", "{milestone}", "{NAME}"]);
+var MILESTONE_PAD_PLACEHOLDER = /^\{milestone:0([1-9])\}$/;
 var PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 var PathSafetyError = class extends Error {
   field;
@@ -22082,15 +22082,17 @@ function validateNamingScheme(template) {
   if (typeof template !== "string" || template.length === 0) {
     throw new PathSafetyError("roadmap.rcNamingScheme", "must be a non-empty string");
   }
-  for (const required2 of REQUIRED_PLACEHOLDERS) {
-    if (!template.includes(required2)) {
-      throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder ${required2}, got: ${template}`);
-    }
-  }
   const found = template.match(PLACEHOLDER_PATTERN) ?? [];
+  const hasMilestone = found.some((placeholder) => placeholder === "{milestone}" || MILESTONE_PAD_PLACEHOLDER.test(placeholder));
+  if (!hasMilestone) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder {milestone} (or a padded variant like {milestone:02}), got: ${template}`);
+  }
+  if (!template.includes("{NAME}")) {
+    throw new PathSafetyError("roadmap.rcNamingScheme", `must contain required placeholder {NAME}, got: ${template}`);
+  }
   for (const placeholder of found) {
-    if (!KNOWN_PLACEHOLDERS.has(placeholder)) {
-      throw new PathSafetyError("roadmap.rcNamingScheme", `unknown placeholder ${placeholder} (allowed: ${[...KNOWN_PLACEHOLDERS].join(", ")})`);
+    if (!KNOWN_PLACEHOLDERS.has(placeholder) && !MILESTONE_PAD_PLACEHOLDER.test(placeholder)) {
+      throw new PathSafetyError("roadmap.rcNamingScheme", `unknown placeholder ${placeholder} (allowed: ${[...KNOWN_PLACEHOLDERS].join(", ")}, {milestone:0N})`);
     }
   }
   if (!template.endsWith(".md")) {
@@ -22114,7 +22116,7 @@ function renderRCFilename(template, meta3) {
   }
   validateRCName(meta3.name);
   const prefix = meta3.kind === "release-candidate" ? "MRC" : "M";
-  const rendered = template.replace(/\{prefix\}/g, prefix).replace(/\{milestone\}/g, String(meta3.milestone)).replace(/\{NAME\}/g, meta3.name);
+  const rendered = template.replace(/\{prefix\}/g, prefix).replace(/\{milestone:0([1-9])\}/g, (_match, width) => String(meta3.milestone).padStart(Number(width), "0")).replace(/\{milestone\}/g, String(meta3.milestone)).replace(/\{NAME\}/g, meta3.name);
   validateRelativePath(rendered, "renderedRCFilename");
   if (/[\\/]/.test(rendered)) {
     throw new PathSafetyError("renderedRCFilename", `rendered filename must not contain path separators, got: ${rendered}`);
@@ -22243,13 +22245,219 @@ async function loadRoadmapConfig(cwd) {
   };
 }
 
+// dist/roadmap-migrate.js
+import { readdir as readdir2, readFile as readFile4, stat as stat2, writeFile as writeFile3 } from "node:fs/promises";
+import path10 from "node:path";
+var RC_FILENAME_PATTERN = /^(M|MRC)(\d+)_([A-Z][A-Z0-9_]*)\.md$/;
+var STATUS_PATTERN = /^Status:\s+(.+)$/m;
+var DASH_CHECKBOX_PATTERN = /^(\s*- \[)(.)(\]\s)/;
+var NUMBERED_CHECKBOX_PATTERN = /^\s*\d+[.)]\s*\[.\]\s/;
+var KNOWN_STATUSES = /* @__PURE__ */ new Set(["stub", "active", "shipped"]);
+var RoadmapMigrateError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "RoadmapMigrateError";
+  }
+};
+async function migrateRoadmap(input) {
+  const apply = input.apply ?? false;
+  const normalizeMarkers = input.normalizeMarkers ?? false;
+  const rcDirAbs = path10.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const indexAbs = path10.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const warnings = [];
+  if (!await dirExists(rcDirAbs)) {
+    throw new RoadmapMigrateError("no-rc-dir", `No RC directory at ${rcDirAbs}. Nothing to migrate.`);
+  }
+  const indexAlreadyExists = await fileExists(indexAbs);
+  if (apply && indexAlreadyExists) {
+    throw new RoadmapMigrateError("index-exists", `${indexAbs} already exists. Migration refuses to overwrite a roadmap index \u2014 merge by hand or remove it first.`);
+  }
+  if (indexAlreadyExists) {
+    warnings.push(`${input.roadmapConfig.indexFile} already exists \u2014 apply will refuse; this dry-run shows what a fresh index would contain.`);
+  }
+  const entries = await readdir2(rcDirAbs, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (!entry.isFile())
+      continue;
+    const match = entry.name.match(RC_FILENAME_PATTERN);
+    if (!match)
+      continue;
+    const [, prefix, digits, name] = match;
+    const filePath = path10.join(rcDirAbs, entry.name);
+    const raw = await readFile4(filePath, "utf8");
+    const lines = raw.split(/\r?\n/);
+    const nonstandardMarkers = [];
+    const numberedChecklistLines = [];
+    const flatTargetedLines = [];
+    let inTargeted = false;
+    let subsectionSeen = false;
+    for (let i = 0; i < lines.length; i += 1) {
+      const h2 = lines[i].match(/^##(?!#)\s+(.+?)\s*$/);
+      if (h2) {
+        inTargeted = h2[1].trim().toLowerCase() === "targeted";
+        subsectionSeen = false;
+      } else if (inTargeted && /^###\s/.test(lines[i])) {
+        subsectionSeen = true;
+      }
+      const dash = lines[i].match(DASH_CHECKBOX_PATTERN);
+      if (dash && dash[2] !== " " && dash[2] !== "x" && dash[2] !== "X") {
+        nonstandardMarkers.push({ line: i + 1, marker: dash[2] });
+      }
+      if (dash && inTargeted && !subsectionSeen) {
+        flatTargetedLines.push(i + 1);
+      }
+      if (NUMBERED_CHECKBOX_PATTERN.test(lines[i])) {
+        numberedChecklistLines.push(i + 1);
+      }
+    }
+    const milestone = Number.parseInt(digits, 10);
+    const kind = prefix === "MRC" ? "release-candidate" : "build";
+    const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
+    files.push({
+      filename: entry.name,
+      rcId: `${prefix}${milestone}_${name}`,
+      milestoneDigits: digits,
+      milestone,
+      kind,
+      name,
+      status,
+      zeroPadded: digits.length > 1 && digits.startsWith("0"),
+      nonstandardMarkers,
+      numberedChecklistLines,
+      flatTargetedLines
+    });
+  }
+  if (files.length === 0) {
+    throw new RoadmapMigrateError("no-rc-files", `No RC-shaped files (M<digits>_<NAME>.md / MRC<digits>_<NAME>.md) found in ${rcDirAbs}.`);
+  }
+  files.sort((a, b) => a.kind === b.kind ? a.milestone - b.milestone : a.kind === "build" ? -1 : 1);
+  const duplicates = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const key = `${file2.kind}:${file2.milestone}`;
+    duplicates.set(key, (duplicates.get(key) ?? 0) + 1);
+  }
+  for (const [key, count] of duplicates) {
+    if (count > 1) {
+      warnings.push(`Duplicate milestone number across files: ${key} appears ${count} times.`);
+    }
+  }
+  const paddingDetected = files.some((f) => f.zeroPadded);
+  const padWidth = paddingDetected ? Math.max(...files.map((f) => f.milestoneDigits.length)) : 0;
+  const suggestedNamingScheme = paddingDetected ? `{prefix}{milestone:0${padWidth}}_{NAME}.md` : "{prefix}{milestone}_{NAME}.md";
+  if (paddingDetected) {
+    warnings.push(`Zero-padded filenames detected \u2014 set roadmap.rcNamingScheme to "${suggestedNamingScheme}" in claude-interrogate.json so the flows resolve these files without renames.`);
+  }
+  for (const file2 of files) {
+    if (!KNOWN_STATUSES.has(file2.status.toLowerCase())) {
+      warnings.push(`${file2.filename}: status "${file2.status}" is outside {Stub, Active, Shipped} \u2014 shipped-lock and drift checks key on "Shipped"; consider mapping it.`);
+    }
+    if (file2.flatTargetedLines.length > 0) {
+      warnings.push(`${file2.filename}: ${file2.flatTargetedLines.length} Targeted checkbox(es) sit directly under "## Targeted" with no "###" subsection (e.g. line ${file2.flatTargetedLines[0]}) \u2014 the parser drops them; group them under "###" headings (each heading becomes an epic key).`);
+    }
+    if (file2.numberedChecklistLines.length > 0) {
+      warnings.push(`${file2.filename}: ${file2.numberedChecklistLines.length} numbered checklist line(s) (e.g. line ${file2.numberedChecklistLines[0]}) \u2014 the parser only reads "- [ ]" dash checkboxes, so these items are invisible to taskout/export until converted.`);
+    }
+  }
+  const totalNonstandard = files.reduce((sum, f) => sum + f.nonstandardMarkers.length, 0);
+  if (totalNonstandard > 0 && !normalizeMarkers) {
+    warnings.push(`${totalNonstandard} nonstandard checkbox marker(s) (e.g. "[~]") found \u2014 the parser skips these lines entirely. Re-run with normalize_markers to rewrite them to "[ ]" (per Seam 7, in-progress state lives in commit footers, not checkbox glyphs).`);
+  }
+  const today = formatIsoDate((input.clock ?? (() => /* @__PURE__ */ new Date()))());
+  const proposedIndex = renderIndex(files, today);
+  let markersNormalized = 0;
+  if (apply) {
+    await assertWithinDir(indexAbs, path10.resolve(input.outputDir));
+    await writeFile3(indexAbs, proposedIndex, "utf8");
+    if (normalizeMarkers && totalNonstandard > 0) {
+      for (const file2 of files) {
+        if (file2.nonstandardMarkers.length === 0)
+          continue;
+        const filePath = path10.join(rcDirAbs, file2.filename);
+        const raw = await readFile4(filePath, "utf8");
+        const rewritten = raw.split(/\r?\n/).map((line) => {
+          const dash = line.match(DASH_CHECKBOX_PATTERN);
+          if (dash && dash[2] !== " " && dash[2] !== "x" && dash[2] !== "X") {
+            markersNormalized += 1;
+            return line.replace(DASH_CHECKBOX_PATTERN, `$1 $3`);
+          }
+          return line;
+        }).join("\n");
+        await writeFile3(filePath, rewritten, "utf8");
+      }
+    }
+  }
+  return {
+    mode: apply ? "applied" : "dry-run",
+    indexPath: indexAbs,
+    files,
+    paddingDetected,
+    suggestedNamingScheme,
+    proposedIndex,
+    markersNormalized,
+    warnings
+  };
+}
+function renderIndex(files, today) {
+  const lines = [];
+  lines.push("# Roadmap");
+  lines.push(`Last Updated: ${today}`);
+  lines.push("");
+  lines.push("## Definition of Done");
+  lines.push("- [ ] Every concept doc is mapped to a milestone or listed in Unmapped Concepts with a reason.");
+  lines.push("");
+  lines.push("## 1.0 Thesis");
+  lines.push("(TBD \u2014 state the project thesis and link its anchor doc. Generated by /migrate-roadmap.)");
+  lines.push("");
+  lines.push("## MIN PLAY Waypoint");
+  lines.push("(TBD \u2014 name the RC and its criterion.)");
+  lines.push("");
+  lines.push("## Release Candidates");
+  lines.push("| Milestone | Name | Status | Anchor | Marketing |");
+  lines.push("|---|---|---|---|---|");
+  for (const file2 of files) {
+    const prefix = file2.kind === "release-candidate" ? "MRC" : "M";
+    lines.push(`| ${prefix}${file2.milestoneDigits} | ${file2.name} | ${file2.status} | \u2014 | \u2014 |`);
+  }
+  lines.push("");
+  lines.push("## Prerequisite Chain");
+  lines.push("(TBD \u2014 add `- M1_A \u2192 M2_B (reason)` lines; the DAG must be acyclic.)");
+  lines.push("");
+  lines.push("## Marketing Waypoints");
+  lines.push("(none configured)");
+  lines.push("");
+  lines.push("## Unmapped Concepts");
+  lines.push("(none recorded)");
+  lines.push("");
+  return lines.join("\n");
+}
+function formatIsoDate(date4) {
+  return date4.toISOString().slice(0, 10);
+}
+async function fileExists(target) {
+  try {
+    return (await stat2(target)).isFile();
+  } catch {
+    return false;
+  }
+}
+async function dirExists(target) {
+  try {
+    return (await stat2(target)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 // dist/scope.js
-import { mkdir as mkdir2, stat as stat3, writeFile as writeFile3 } from "node:fs/promises";
-import path11 from "node:path";
+import { mkdir as mkdir2, stat as stat4, writeFile as writeFile4 } from "node:fs/promises";
+import path12 from "node:path";
 
 // dist/roadmap-parse.js
-import { readFile as readFile4, stat as stat2 } from "node:fs/promises";
-import path10 from "node:path";
+import { readFile as readFile5, stat as stat3 } from "node:fs/promises";
+import path11 from "node:path";
 var SECTION_ALIASES = {
   thesis: ["1.0 thesis", "thesis"],
   minPlay: ["min play waypoint", "min play"],
@@ -22268,17 +22476,17 @@ var SECTION_ALIASES = {
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 var BULLET_PATTERN = /^- (.+)$/;
-var STATUS_PATTERN = /^Status:\s+(.+)$/m;
+var STATUS_PATTERN2 = /^Status:\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^Last Updated:\s+(\S.+)$/m;
 var RC_HEADER_PATTERN = /^#\s+.*\b(MRC|M)(\d+)\s+—\s+(.+?)\s*$/m;
 var BLOCKS_TAG_PATTERN = /`blocks:\s*([^`]+)`/i;
 var SEVERITY_TAG_PATTERN = /`severity:\s*([a-z\-]+)`/i;
 var TABLE_DIVIDER_PATTERN = /^\s*\|?\s*:?-{2,}.*$/;
 async function parseRoadmapIndex(absolutePath) {
-  if (!await fileExists(absolutePath)) {
+  if (!await fileExists2(absolutePath)) {
     return null;
   }
-  const raw = await readFile4(absolutePath, "utf8");
+  const raw = await readFile5(absolutePath, "utf8");
   const sections = collectSections(raw);
   return {
     thesis: parseThesis(sections),
@@ -22291,18 +22499,18 @@ async function parseRoadmapIndex(absolutePath) {
   };
 }
 async function parseRCFile(absolutePath) {
-  if (!await fileExists(absolutePath)) {
+  if (!await fileExists2(absolutePath)) {
     return null;
   }
-  const raw = await readFile4(absolutePath, "utf8");
+  const raw = await readFile5(absolutePath, "utf8");
   const sections = collectSections(raw);
   const headerMatch = raw.match(RC_HEADER_PATTERN);
   const prefix = headerMatch?.[1];
   const milestone = headerMatch?.[2] ? Number.parseInt(headerMatch[2], 10) : 0;
-  const rawName = headerMatch?.[3] ?? path10.basename(absolutePath, ".md");
+  const rawName = headerMatch?.[3] ?? path11.basename(absolutePath, ".md");
   const name = normalizeRCNameFromHeader(rawName);
   const kind = prefix === "MRC" ? "release-candidate" : "build";
-  const status = raw.match(STATUS_PATTERN)?.[1]?.trim() ?? "Stub";
+  const status = raw.match(STATUS_PATTERN2)?.[1]?.trim() ?? "Stub";
   const lastUpdated = raw.match(LAST_UPDATED_PATTERN)?.[1]?.trim();
   return {
     path: absolutePath,
@@ -22321,10 +22529,10 @@ async function parseRCFile(absolutePath) {
   };
 }
 async function parseTechDebt(absolutePath) {
-  if (!await fileExists(absolutePath)) {
+  if (!await fileExists2(absolutePath)) {
     return null;
   }
-  const raw = await readFile4(absolutePath, "utf8");
+  const raw = await readFile5(absolutePath, "utf8");
   const lines = raw.split(/\r?\n/);
   const items = [];
   for (let i = 0; i < lines.length; i += 1) {
@@ -22611,9 +22819,9 @@ function normalizeBlockerKind(raw) {
     return "External";
   return null;
 }
-async function fileExists(target) {
+async function fileExists2(target) {
   try {
-    const info = await stat2(target);
+    const info = await stat3(target);
     return info.isFile();
   } catch {
     return false;
@@ -22635,8 +22843,8 @@ var ScopeError = class extends Error {
   }
 };
 async function analyzeScope(input) {
-  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
-  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const docsExclusions = resolveDocsExclusions(input);
   const docs = await loadDocsRecursive(input.docsDir, {
     excludeDirs: docsExclusions.dirs,
@@ -22685,14 +22893,14 @@ async function generateScope(input) {
   if (input.mode === "maintenance") {
     await enforceShippedScopeLock(input);
   }
-  const today = formatIsoDate((input.clock ?? (() => /* @__PURE__ */ new Date()))());
-  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const today = formatIsoDate2((input.clock ?? (() => /* @__PURE__ */ new Date()))());
+  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
   const indexTarget = input.mode === "maintenance" ? withDraftSuffix(indexAbs) : indexAbs;
-  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
   await assertWithinDir(indexTarget, input.outputDir);
-  await mkdir2(path11.dirname(indexTarget), { recursive: true });
+  await mkdir2(path12.dirname(indexTarget), { recursive: true });
   const indexContent = renderRoadmapIndex(input.plan, today, input.roadmapConfig);
-  await writeFile3(indexTarget, indexContent, "utf8");
+  await writeFile4(indexTarget, indexContent, "utf8");
   const rcOutputs = [];
   await mkdir2(rcDirAbs, { recursive: true });
   for (const rc of input.plan.rcs) {
@@ -22701,12 +22909,12 @@ async function generateScope(input) {
       name: rc.name,
       kind: rc.kind
     });
-    const rcAbs = path11.resolve(rcDirAbs, filename);
+    const rcAbs = path12.resolve(rcDirAbs, filename);
     const rcTarget = input.mode === "maintenance" ? withDraftSuffix(rcAbs) : rcAbs;
     await assertWithinDir(rcTarget, rcDirAbs);
     const existingRC = input.mode === "maintenance" ? await parseRCFile(rcAbs) : null;
     const stubContent = renderRCStub(rc, today, input.plan, existingRC);
-    await writeFile3(rcTarget, stubContent, "utf8");
+    await writeFile4(rcTarget, stubContent, "utf8");
     rcOutputs.push({ path: rcTarget, content: stubContent });
   }
   const paths = [indexTarget, ...rcOutputs.map((rc) => rc.path)];
@@ -22776,7 +22984,7 @@ function validateScopePlan(plan) {
   }
 }
 async function enforceShippedScopeLock(input) {
-  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
   const existingIndex = await parseRoadmapIndex(indexAbs);
   if (!existingIndex)
     return;
@@ -22839,9 +23047,9 @@ async function proposeRCsFromExisting(existingIndex, rcDirAbs, config2, conceptB
       name: row.name,
       kind: row.kind
     });
-    const rcAbs = path11.join(rcDirAbs, filename);
+    const rcAbs = path12.join(rcDirAbs, filename);
     const parsed = await parseRCFile(rcAbs);
-    const anchors = parsed?.references?.filter((ref) => conceptByPath.has(path11.resolve(rcDirAbs, "..", ref))).map((ref) => ({ kind: "Concept", path: ref }));
+    const anchors = parsed?.references?.filter((ref) => conceptByPath.has(path12.resolve(rcDirAbs, "..", ref))).map((ref) => ({ kind: "Concept", path: ref }));
     rcs.push({
       id: `${rcPrefix(row.kind)}${row.milestone}_${row.name}`,
       milestone: row.milestone,
@@ -22872,12 +23080,12 @@ function inferDAGCandidates(docs, rcs) {
   for (const rc of rcs) {
     for (const anchor of rc.anchors) {
       if (anchor.path) {
-        rcByAnchorPath.set(path11.basename(anchor.path), rc.id);
+        rcByAnchorPath.set(path12.basename(anchor.path), rc.id);
       }
     }
   }
   for (const doc of docs) {
-    const fromRC = rcByAnchorPath.get(path11.basename(doc.path));
+    const fromRC = rcByAnchorPath.get(path12.basename(doc.path));
     if (!fromRC)
       continue;
     const lines = doc.content.split(/\r?\n/);
@@ -22885,7 +23093,7 @@ function inferDAGCandidates(docs, rcs) {
       const line = lines[i];
       const refs = Array.from(line.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g));
       for (const ref of refs) {
-        const targetBase = path11.basename(ref[2]);
+        const targetBase = path12.basename(ref[2]);
         const toRC = rcByAnchorPath.get(targetBase);
         if (!toRC || toRC === fromRC)
           continue;
@@ -22896,7 +23104,7 @@ function inferDAGCandidates(docs, rcs) {
           to: fromRC,
           kind: "depends-on",
           confidence,
-          reason: `${path11.basename(doc.path)} references ${targetBase} (line ${i + 1})`
+          reason: `${path12.basename(doc.path)} references ${targetBase} (line ${i + 1})`
         });
       }
     }
@@ -22928,7 +23136,7 @@ async function computeDriftSummary(args) {
     mappedDocPaths.add(unmapped.docPath);
   }
   const newConceptsUnmapped = args.conceptDocs.filter((doc) => {
-    const candidates = [doc.path, path11.basename(doc.path)];
+    const candidates = [doc.path, path12.basename(doc.path)];
     return !candidates.some((candidate) => mappedDocPaths.has(candidate));
   }).map((doc) => doc.path);
   const shippedRCs = args.existingIndex.rcRows.filter((row) => row.status.toLowerCase() === "shipped").map((row) => `${rcPrefix(row.kind)}${row.milestone}_${row.name}`);
@@ -22939,8 +23147,8 @@ async function computeDriftSummary(args) {
       name: row.name,
       kind: row.kind
     });
-    const rcAbs = path11.join(args.rcDirAbs, filename);
-    const exists = await fileExists2(rcAbs);
+    const rcAbs = path12.join(args.rcDirAbs, filename);
+    const exists = await fileExists3(rcAbs);
     if (!exists) {
       rcsMissingFromIndex.push(`${rcPrefix(row.kind)}${row.milestone}_${row.name}`);
     }
@@ -23133,41 +23341,41 @@ function toConceptDocSummary(doc) {
   };
 }
 function resolveDocsExclusions(input) {
-  const docsAbs = path11.resolve(input.docsDir);
+  const docsAbs = path12.resolve(input.docsDir);
   const dirs = [];
   const files = [];
-  const rcDirAbs = path11.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
   if (isInsideDir(rcDirAbs, docsAbs)) {
-    dirs.push(path11.relative(docsAbs, rcDirAbs));
+    dirs.push(path12.relative(docsAbs, rcDirAbs));
   }
-  const indexAbs = path11.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
   if (isInsideDir(indexAbs, docsAbs)) {
-    files.push(path11.relative(docsAbs, indexAbs));
+    files.push(path12.relative(docsAbs, indexAbs));
   }
   if (input.roadmapConfig.techDebtFile) {
-    const techDebtAbs = path11.resolve(input.outputDir, input.roadmapConfig.techDebtFile);
+    const techDebtAbs = path12.resolve(input.outputDir, input.roadmapConfig.techDebtFile);
     if (isInsideDir(techDebtAbs, docsAbs)) {
-      files.push(path11.relative(docsAbs, techDebtAbs));
+      files.push(path12.relative(docsAbs, techDebtAbs));
     }
   }
   return { dirs, files };
 }
 function isInsideDir(target, base) {
-  const rel = path11.relative(base, target);
-  return rel !== "" && !rel.startsWith("..") && !path11.isAbsolute(rel);
+  const rel = path12.relative(base, target);
+  return rel !== "" && !rel.startsWith("..") && !path12.isAbsolute(rel);
 }
-function formatIsoDate(date4) {
+function formatIsoDate2(date4) {
   return date4.toISOString().slice(0, 10);
 }
 function withDraftSuffix(absPath) {
-  const dir = path11.dirname(absPath);
-  const base = path11.basename(absPath);
+  const dir = path12.dirname(absPath);
+  const base = path12.basename(absPath);
   const replaced = base.replace(/\.md$/i, ".draft.md");
-  return path11.join(dir, replaced);
+  return path12.join(dir, replaced);
 }
-async function fileExists2(target) {
+async function fileExists3(target) {
   try {
-    const info = await stat3(target);
+    const info = await stat4(target);
     return info.isFile();
   } catch {
     return false;
@@ -23176,8 +23384,8 @@ async function fileExists2(target) {
 
 // dist/taskout.js
 import { createHash } from "node:crypto";
-import { mkdir as mkdir3, readdir as readdir2, stat as stat4, writeFile as writeFile4 } from "node:fs/promises";
-import path12 from "node:path";
+import { mkdir as mkdir3, readdir as readdir3, stat as stat5, writeFile as writeFile5 } from "node:fs/promises";
+import path13 from "node:path";
 var TaskoutError = class extends Error {
   code;
   constructor(code, message) {
@@ -23188,8 +23396,8 @@ var TaskoutError = class extends Error {
 };
 async function analyzeTaskout(input) {
   validateRCId(input.rcId);
-  const indexAbs = path12.resolve(input.outputDir, input.roadmapConfig.indexFile);
-  const indexExists = await fileExists3(indexAbs);
+  const indexAbs = path13.resolve(input.outputDir, input.roadmapConfig.indexFile);
+  const indexExists = await fileExists4(indexAbs);
   if (!indexExists) {
     throw new TaskoutError("no-roadmap", `No ${input.roadmapConfig.indexFile} at ${indexAbs}. Run /roadmap first to bootstrap the project roadmap.`);
   }
@@ -23201,14 +23409,14 @@ async function analyzeTaskout(input) {
   if (!row) {
     throw new TaskoutError("rc-not-in-index", `RC ${input.rcId} is not declared in ${input.roadmapConfig.indexFile}. Run /roadmap maintenance to add it first.`);
   }
-  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
     milestone: row.milestone,
     name: row.name
   });
-  const rcAbs = path12.resolve(rcDirAbs, filename);
+  const rcAbs = path13.resolve(rcDirAbs, filename);
   await assertWithinDir(rcAbs, rcDirAbs);
-  const rcFileExists = await fileExists3(rcAbs);
+  const rcFileExists = await fileExists4(rcAbs);
   const mode = rcFileExists ? "maintenance" : "bootstrap-rc";
   const existingRC = rcFileExists ? await parseRCFile(rcAbs) : null;
   const rc = {
@@ -23248,14 +23456,14 @@ async function analyzeTaskout(input) {
 }
 async function generateTaskout(input) {
   validateRCId(input.plan.rc.id);
-  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
     milestone: input.plan.rc.milestone,
     name: input.plan.rc.name
   });
-  const rcAbs = path12.resolve(rcDirAbs, filename);
+  const rcAbs = path13.resolve(rcDirAbs, filename);
   await assertWithinDir(rcAbs, rcDirAbs);
-  const rcFileExists = await fileExists3(rcAbs);
+  const rcFileExists = await fileExists4(rcAbs);
   if (input.mode === "maintenance" && !rcFileExists) {
     throw new TaskoutError("mode-mismatch", `Caller said mode='maintenance' but ${rcAbs} does not exist. Use mode='bootstrap-rc' instead.`);
   }
@@ -23265,11 +23473,11 @@ async function generateTaskout(input) {
   if (input.mode === "maintenance") {
     await enforceShippedTaskoutLock(rcAbs, input.plan);
   }
-  const today = formatIsoDate2((input.clock ?? (() => /* @__PURE__ */ new Date()))());
+  const today = formatIsoDate3((input.clock ?? (() => /* @__PURE__ */ new Date()))());
   const target = input.mode === "maintenance" ? withDraftSuffix2(rcAbs) : rcAbs;
   const content = renderTaskout(input.plan, today);
-  await mkdir3(path12.dirname(target), { recursive: true });
-  await writeFile4(target, content, "utf8");
+  await mkdir3(path13.dirname(target), { recursive: true });
+  await writeFile5(target, content, "utf8");
   return { path: target, content };
 }
 async function exportTaskout(input) {
@@ -23278,15 +23486,15 @@ async function exportTaskout(input) {
   const kind = idMatch[1] === "MRC" ? "release-candidate" : "build";
   const milestone = Number(idMatch[2]);
   const name = idMatch[3];
-  const rcDirAbs = path12.resolve(input.outputDir, input.roadmapConfig.rcDir);
+  const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
     milestone,
     name,
     kind
   });
-  const rcAbs = path12.resolve(rcDirAbs, filename);
+  const rcAbs = path13.resolve(rcDirAbs, filename);
   await assertWithinDir(rcAbs, rcDirAbs);
-  if (!await fileExists3(rcAbs)) {
+  if (!await fileExists4(rcAbs)) {
     throw new TaskoutError("rc-file-not-found", `No RC file at ${rcAbs} for ${input.rcId}. Run /taskout to create it first.`);
   }
   const parsed = await parseRCFile(rcAbs);
@@ -23428,9 +23636,9 @@ function pickMappedConcepts(rc, conceptPaths) {
   const mappedPaths = new Set(rc.anchors.filter((a) => a.path).map((a) => a.path));
   const results = [];
   for (const docPath of conceptPaths) {
-    const basename = path12.basename(docPath);
+    const basename = path13.basename(docPath);
     for (const anchorPath of mappedPaths) {
-      if (anchorPath === docPath || path12.basename(anchorPath) === basename) {
+      if (anchorPath === docPath || path13.basename(anchorPath) === basename) {
         results.push({ path: docPath, relevantSections: [] });
         break;
       }
@@ -23439,17 +23647,17 @@ function pickMappedConcepts(rc, conceptPaths) {
   return results;
 }
 async function collectCarriedFromCandidates(args) {
-  const exists = await dirExists(args.rcDirAbs);
+  const exists = await dirExists2(args.rcDirAbs);
   if (!exists)
     return [];
-  const entries = await readdir2(args.rcDirAbs, { withFileTypes: true });
+  const entries = await readdir3(args.rcDirAbs, { withFileTypes: true });
   const candidates = [];
   for (const entry of entries) {
     if (!entry.isFile())
       continue;
     if (!entry.name.endsWith(".md") || entry.name.endsWith(".draft.md"))
       continue;
-    const filePath = path12.join(args.rcDirAbs, entry.name);
+    const filePath = path13.join(args.rcDirAbs, entry.name);
     const parsed = await parseRCFile(filePath);
     if (!parsed)
       continue;
@@ -23494,7 +23702,7 @@ async function collectCarriedFromCandidates(args) {
 async function collectTechDebtBlockers(args) {
   if (!args.roadmapConfig.techDebtFile)
     return [];
-  const techDebtAbs = path12.resolve(args.outputDir, args.roadmapConfig.techDebtFile);
+  const techDebtAbs = path13.resolve(args.outputDir, args.roadmapConfig.techDebtFile);
   const parsed = await parseTechDebt(techDebtAbs);
   if (!parsed)
     return [];
@@ -23646,25 +23854,25 @@ function sameTargeted(a, b) {
   }
   return true;
 }
-function formatIsoDate2(date4) {
+function formatIsoDate3(date4) {
   return date4.toISOString().slice(0, 10);
 }
 function withDraftSuffix2(absPath) {
-  const dir = path12.dirname(absPath);
-  const base = path12.basename(absPath);
-  return path12.join(dir, base.replace(/\.md$/i, ".draft.md"));
+  const dir = path13.dirname(absPath);
+  const base = path13.basename(absPath);
+  return path13.join(dir, base.replace(/\.md$/i, ".draft.md"));
 }
-async function fileExists3(target) {
+async function fileExists4(target) {
   try {
-    const info = await stat4(target);
+    const info = await stat5(target);
     return info.isFile();
   } catch {
     return false;
   }
 }
-async function dirExists(target) {
+async function dirExists2(target) {
   try {
-    const info = await stat4(target);
+    const info = await stat5(target);
     return info.isDirectory();
   } catch {
     return false;
@@ -23674,7 +23882,7 @@ async function dirExists(target) {
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
-  version: "0.1.9"
+  version: "0.1.10"
 }, {
   capabilities: {
     tools: {},
@@ -23823,6 +24031,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           output_dir: { type: "string" }
         },
         required: ["rc_id"]
+      }
+    },
+    {
+      name: "design_roadmap_migrate",
+      description: "Migrate a pre-existing roadmap directory into the interrogate format: scan RC-shaped files, generate the missing roadmap.md index, detect zero-padded naming (suggesting a {milestone:0N} scheme), and optionally normalize nonstandard checkbox markers. Dry-run by default.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          output_dir: { type: "string" },
+          apply: { type: "boolean" },
+          normalize_markers: { type: "boolean" }
+        }
       }
     }
   ]
@@ -24565,6 +24785,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         rcId: String(args?.rc_id ?? ""),
         outputDir,
         roadmapConfig: loaded.config
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_roadmap_migrate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await migrateRoadmap({
+        outputDir,
+        roadmapConfig: loaded.config,
+        apply: Boolean(args?.apply),
+        normalizeMarkers: Boolean(args?.normalize_markers),
+        clock: () => /* @__PURE__ */ new Date()
       });
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]

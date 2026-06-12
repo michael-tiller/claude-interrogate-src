@@ -12,6 +12,7 @@ import { designInterviewStart } from "./interview.js";
 import { designSummarize } from "./summarize.js";
 import { designCrossRefSync } from "./sync.js";
 import { loadRoadmapConfig } from "./roadmap-config.js";
+import { migrateRoadmap } from "./roadmap-migrate.js";
 import { analyzeScope, generateScope } from "./scope.js";
 import { analyzeTaskout, exportTaskout, generateTaskout } from "./taskout.js";
 import { ConfirmedScopePlan, ConfirmedTaskoutPlan, TaskoutMode } from "./types.js";
@@ -19,7 +20,7 @@ import { ConfirmedScopePlan, ConfirmedTaskoutPlan, TaskoutMode } from "./types.j
 const server = new Server(
   {
     name: "claude-interrogate",
-    version: "0.1.9"
+    version: "0.1.10"
   },
   {
     capabilities: {
@@ -176,6 +177,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           output_dir: { type: "string" }
         },
         required: ["rc_id"]
+      }
+    },
+    {
+      name: "design_roadmap_migrate",
+      description:
+        "Migrate a pre-existing roadmap directory into the interrogate format: scan RC-shaped files, generate the missing roadmap.md index, detect zero-padded naming (suggesting a {milestone:0N} scheme), and optionally normalize nonstandard checkbox markers. Dry-run by default.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          output_dir: { type: "string" },
+          apply: { type: "boolean" },
+          normalize_markers: { type: "boolean" }
+        }
       }
     }
   ]
@@ -1017,6 +1031,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         rcId: String(args?.rc_id ?? ""),
         outputDir,
         roadmapConfig: loaded.config
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    case "design_roadmap_migrate": {
+      const outputDir = String(args?.output_dir ?? process.cwd());
+      const loaded = await loadRoadmapConfig(outputDir);
+      const result = await migrateRoadmap({
+        outputDir,
+        roadmapConfig: loaded.config,
+        apply: Boolean(args?.apply),
+        normalizeMarkers: Boolean(args?.normalize_markers),
+        clock: () => new Date()
       });
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]

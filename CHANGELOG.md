@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.10] - 2026-06-11
+
+### Added
+
+- **`design_roadmap_migrate` MCP tool and `/migrate-roadmap` command** — adopts a pre-existing roadmap directory without renames: scans RC-shaped files, generates the missing `roadmap.md` index (round-trips through the index parser), detects zero-padded filenames and suggests the matching naming scheme, and optionally normalizes nonstandard checkbox markers (`[~]` → `[ ]` — per Seam 7, in-progress state lives in commit footers, not checkbox glyphs). Dry-run by default; refuses to overwrite an existing index. Warns on everything the parser would silently drop: nonstandard markers, numbered checklists, flat Targeted checkboxes with no `###` subsection, and statuses outside {Stub, Active, Shipped}. Fulfils the migration flow promised in the 0.1.6 notes; first customer is the dirigible2D layout.
+- **Zero-padded milestone placeholder `{milestone:0N}`** in `rcNamingScheme` (e.g. `{prefix}{milestone:02}_{NAME}.md` resolves `M1_CORE` to `M01_CORE.md`). Padding is display-only; RC ids stay unpadded.
+
 ## [0.1.9] - 2026-06-11
 
 ### Added

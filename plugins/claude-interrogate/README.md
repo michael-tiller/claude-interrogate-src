@@ -24,6 +24,7 @@ Claude Code commands (namespaced):
 - `/claude-interrogate:sync-docs [docs-dir]`
 - `/claude-interrogate:adr [title]`
 - `/claude-interrogate:roadmap [docs-dir]`
+- `/claude-interrogate:migrate-roadmap [output-dir]`
 - `/claude-interrogate:taskout <rc-id> [docs-dir]`
 - `/claude-interrogate:flay <task-key> [output-dir]`
 - `/claude-interrogate:flay-auto <task-key> [output-dir]`

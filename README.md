@@ -184,6 +184,7 @@ What works now:
   - `/audit-docs [docs-dir]`
   - `/sync-docs [docs-dir]`
   - `/adr [title]`
+  - `/migrate-roadmap [output-dir]`
   - `/flay <task-key> [output-dir]`
   - `/flay-auto <task-key> [output-dir]`
   - `/scratch [topic]`
