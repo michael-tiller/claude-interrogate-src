@@ -70,8 +70,15 @@ export async function analyzeTaskout(
     throw new TaskoutError("no-roadmap", `Failed to parse ${indexAbs}.`);
   }
 
+  // Compare numerically so zero-padded ids (M04_CLASSES_SKILLS) match the
+  // integer milestone parsed from the index, mirroring exportTaskout's parse.
+  const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/)!;
+  const idKind = idMatch[1] === "MRC" ? "release-candidate" : "build";
   const row = parsedIndex.rcRows.find(
-    (r) => `${r.kind === "release-candidate" ? "MRC" : "M"}${r.milestone}_${r.name}` === input.rcId,
+    (r) =>
+      r.kind === idKind &&
+      r.milestone === Number(idMatch[2]) &&
+      r.name === idMatch[3],
   );
   if (!row) {
     throw new TaskoutError(

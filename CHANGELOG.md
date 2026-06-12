@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.12] - 2026-06-11
+
+### Fixed
+
+- **Zero-padded RC ids resolve against the index** — `design_taskout_start` rebuilt the candidate id as `M${milestone}_${name}` from the integer-parsed milestone, so a padded id like `M04_CLASSES_SKILLS` could never match and refused with `rc-not-in-index`. The matcher now compares kind/milestone/name numerically (mirroring `design_taskout_export`'s parse), so padded and unpadded ids both resolve to the same RC. Softens the 0.1.10 "RC ids stay unpadded" stance: projects with `{milestone:0N}` filenames (dirigible2D) key ClickUp maps and task footers by the padded id, so the padded form is now first-class on input; the id a caller passes is still echoed verbatim into keys.
+
 ## [0.1.11] - 2026-06-11
 
 ### Added

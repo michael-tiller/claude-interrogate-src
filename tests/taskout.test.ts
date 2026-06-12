@@ -101,6 +101,29 @@ describe("analyzeTaskout — mode detection", () => {
     });
     expect(result.mode).toBe("maintenance");
   });
+
+  it("matches zero-padded rcIds against the index (M04 == M4)", async () => {
+    const { root, docsDir } = await makeProject();
+    await writeIndex(root, ["| M04 | CLASSES_SKILLS | Active | Concept/classes.md | — |"]);
+    await writeFile(
+      path.join(root, "Roadmap", "M04_CLASSES_SKILLS.md"),
+      "# M04 — CLASSES_SKILLS\nStatus: Active\n\n## Theme\nT\n",
+      "utf8",
+    );
+    const result = await analyzeTaskout({
+      rcId: "M04_CLASSES_SKILLS",
+      docsDir,
+      outputDir: root,
+      roadmapConfig: {
+        ...DEFAULT_ROADMAP_CONFIG,
+        rcNamingScheme: "{prefix}{milestone:02}_{NAME}.md",
+      },
+      configBaseDir: root,
+    });
+    expect(result.mode).toBe("maintenance");
+    expect(result.rc.milestone).toBe(4);
+    expect(result.rc.name).toBe("CLASSES_SKILLS");
+  });
 });
 
 describe("analyzeTaskout — tech-debt blockers", () => {

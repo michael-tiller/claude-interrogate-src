@@ -23421,7 +23421,9 @@ async function analyzeTaskout(input) {
   if (!parsedIndex) {
     throw new TaskoutError("no-roadmap", `Failed to parse ${indexAbs}.`);
   }
-  const row = parsedIndex.rcRows.find((r) => `${r.kind === "release-candidate" ? "MRC" : "M"}${r.milestone}_${r.name}` === input.rcId);
+  const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
+  const idKind = idMatch[1] === "MRC" ? "release-candidate" : "build";
+  const row = parsedIndex.rcRows.find((r) => r.kind === idKind && r.milestone === Number(idMatch[2]) && r.name === idMatch[3]);
   if (!row) {
     throw new TaskoutError("rc-not-in-index", `RC ${input.rcId} is not declared in ${input.roadmapConfig.indexFile}. Run /roadmap maintenance to add it first.`);
   }
@@ -23898,7 +23900,7 @@ async function dirExists2(target) {
 // dist/server.js
 var server = new Server({
   name: "claude-interrogate",
-  version: "0.1.11"
+  version: "0.1.12"
 }, {
   capabilities: {
     tools: {},
