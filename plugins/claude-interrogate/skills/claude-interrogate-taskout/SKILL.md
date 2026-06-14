@@ -21,7 +21,7 @@ Use this skill when the user wants to break a single release candidate into epic
 3. If the response is `no-roadmap`, tell the user to run `/roadmap` first and stop. If `rc-not-in-index`, tell them to run `/roadmap` in maintenance mode to add the RC first.
 4. Use the returned `mode` (`bootstrap-rc` or `maintenance`) verbatim. Do not override.
 5. Walk the draft sections with the user in order: Theme, Goals, Targeted, Blockers & Dependencies, Definition of Done, References. For Blockers, the tool surfaces upstream RCs, scanned tech-debt items, and Carried-From candidates from sibling RC Out-of-Scope sections — confirm each and ask the user for any external pending decisions.
-6. Targeted granularity is epic-level checklist items, not story-level tasks. Detailed task breakdowns belong in `Plan/` docs.
+6. Targeted granularity is coarse work units — one item ≈ one ClickUp Task; fine-grained breakdowns belong in `Plan/` docs. For each Targeted item, also capture an optional **per-item DOD**: 1-3 observable pass/fail criteria that confirm it is done, placed on the confirmed plan's `item.dod` (rendered as `- DOD:` sub-bullets under the item, kept out of the hashed key text). The board is the human-readable bridge from design to game — each item should state its requirement in human terms. Items with no specific criteria inherit the milestone DoD.
 7. For Shipped RCs whose immutable fields change in the confirmed plan, interview the user for a `shipped-lock-bypass` override naming the changed fields and a reason.
 8. Coverage gate before write: every section has content; DoD has at least 3 testable assertions; References cites every doc named inline in Targeted.
 9. Present the findings summary and ask the user to confirm, modify, deny, or cancel.

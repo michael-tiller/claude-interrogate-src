@@ -22474,6 +22474,7 @@ var SECTION_ALIASES = {
 };
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
+var DOD_PATTERN = /^\s+-\s+DOD:\s*(.+)$/i;
 var BULLET_PATTERN = /^- (.+)$/;
 var STATUS_PATTERN2 = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
@@ -22779,6 +22780,7 @@ function parseTargeted(sections) {
   const lines = body.split(/\r?\n/);
   const subsections = [];
   let current = null;
+  let currentItem = null;
   for (const line of lines) {
     const heading = line.match(/^###\s+(.+?)\s*$/);
     if (heading) {
@@ -22786,12 +22788,22 @@ function parseTargeted(sections) {
         subsections.push(current);
       }
       current = { heading: heading[1].trim(), items: [] };
+      currentItem = null;
       continue;
     }
     const checkbox = line.match(CHECKBOX_PATTERN);
     if (checkbox && current) {
       const checked = checkbox[1].toLowerCase() === "x";
-      current.items.push({ text: checkbox[2].trim(), checked });
+      currentItem = { text: checkbox[2].trim(), checked };
+      current.items.push(currentItem);
+      continue;
+    }
+    const dod = line.match(DOD_PATTERN);
+    if (dod && currentItem) {
+      if (!currentItem.dod) {
+        currentItem.dod = [];
+      }
+      currentItem.dod.push(dod[1].trim());
     }
   }
   if (current) {
@@ -23531,7 +23543,12 @@ async function exportTaskout(input) {
       const occurrence = textOccurrences.get(normalized) ?? 0;
       textOccurrences.set(normalized, occurrence + 1);
       const digest = createHash("sha1").update(`${normalized}\0${occurrence}`).digest("hex").slice(0, 12);
-      return { text: item.text, checked: item.checked, key: `${epicKey}#${digest}` };
+      return {
+        text: item.text,
+        checked: item.checked,
+        key: `${epicKey}#${digest}`,
+        ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {}
+      };
     });
     return { heading: sub.heading, key: epicKey, items };
   });
@@ -23765,6 +23782,12 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
     question: "For each major area of work, list epic-level checklist items. Cite concept-doc sections inline.",
     rationale: "Epic-level granularity; the per-task breakdown lives in Plan/ docs."
   });
+  questions.push({
+    id: "targeted-dods",
+    theme: "Per-item DOD",
+    question: "For each Targeted item, give 1-3 observable pass/fail criteria that confirm it is done (rendered as `- DOD:` sub-bullets under the item). An item with no specific criteria inherits the milestone DoD.",
+    rationale: "The board is the human-readable bridge from design to game; a concrete per-item requirement makes every downstream step (flay, verification, the ClickUp mirror) work against a spec, not just a title."
+  });
   if (techDebt.length || carried.length) {
     questions.push({
       id: "blockers",
@@ -23824,6 +23847,11 @@ function renderTaskout(plan, today) {
       lines.push(`### ${sub.heading}`);
       for (const item of sub.items) {
         lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+        if (item.dod && item.dod.length > 0) {
+          for (const criterion of item.dod) {
+            lines.push(`  - DOD: ${criterion}`);
+          }
+        }
       }
       lines.push("");
     }

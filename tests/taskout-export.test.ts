@@ -207,3 +207,70 @@ Duplicates everywhere.
     }
   });
 });
+
+describe("exportTaskout per-item DOD", () => {
+  const RC_WITH_DOD = `# M3 — DODTEST
+Status: Active
+
+## Definition of Done
+- [ ] Ships.
+
+## Theme
+Per-item DOD round-trip.
+
+## Goals
+- Capture DOD.
+
+## Targeted
+### Dispatch
+- [ ] Wire the dispatcher
+  - DOD: a colonist accepts a dispatched job
+  - DOD: the job completes and is logged
+- [ ] Plain item with no DOD
+
+## Blockers & Dependencies
+- None identified.
+
+## References
+- (none)
+`;
+
+  it("attaches DOD sub-bullets to their item, omits dod when none, and keeps keys stable", async () => {
+    const dir = await makeTempDir();
+    await writeRC(dir, "M3_DODTEST.md", RC_WITH_DOD);
+
+    const result = await exportTaskout({
+      rcId: "M3_DODTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    const items = result.targeted[0].items;
+    // The `- DOD:` sub-bullets attach to the item they sit under, in order.
+    expect(items[0].dod).toEqual([
+      "a colonist accepts a dispatched job",
+      "the job completes and is logged",
+    ]);
+    // No DOD authored → the field is absent entirely (not an empty array).
+    expect(items[1].dod).toBeUndefined();
+
+    // DOD is a SEPARATE field, never part of the hashed text: stripping the DOD
+    // sub-bullets must leave the item's key byte-identical, or the mirror orphans.
+    const keyWithDod = items[0].key;
+    await writeRC(
+      dir,
+      "M3_DODTEST.md",
+      RC_WITH_DOD.replace("  - DOD: a colonist accepts a dispatched job\n", "").replace(
+        "  - DOD: the job completes and is logged\n",
+        "",
+      ),
+    );
+    const stripped = await exportTaskout({
+      rcId: "M3_DODTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    expect(stripped.targeted[0].items[0].dod).toBeUndefined();
+    expect(stripped.targeted[0].items[0].key).toBe(keyWithDod);
+  });
+});

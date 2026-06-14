@@ -230,7 +230,7 @@ export interface ConfirmedScopePlan {
 
 export interface TargetedSubsection {
   heading: string;
-  items: { text: string; checked: boolean }[];
+  items: { text: string; checked: boolean; dod?: string[] }[];
 }
 
 export interface BlockerEntry {
@@ -330,6 +330,8 @@ export interface TaskoutExportItem {
   text: string;
   checked: boolean;
   key: string;
+  /** Per-item Definition of Done (the `- DOD:` sub-bullets); omitted when none authored. */
+  dod?: string[];
 }
 
 export interface TaskoutExportSection {

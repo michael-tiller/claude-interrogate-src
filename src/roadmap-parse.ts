@@ -28,6 +28,9 @@ const SECTION_ALIASES: Record<string, string[]> = {
 
 const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
+// Per-item DOD: an indented `- DOD:` sub-bullet under a Targeted checkbox item.
+// Held as a SEPARATE field (never folded into the hashed item text) so item keys stay stable.
+const DOD_PATTERN = /^\s+-\s+DOD:\s*(.+)$/i;
 const BULLET_PATTERN = /^- (.+)$/;
 // Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
 const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
@@ -401,6 +404,7 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
   const lines = body.split(/\r?\n/);
   const subsections: TargetedSubsection[] = [];
   let current: TargetedSubsection | null = null;
+  let currentItem: { text: string; checked: boolean; dod?: string[] } | null = null;
 
   for (const line of lines) {
     const heading = line.match(/^###\s+(.+?)\s*$/);
@@ -409,12 +413,23 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
         subsections.push(current);
       }
       current = { heading: heading[1].trim(), items: [] };
+      currentItem = null;
       continue;
     }
     const checkbox = line.match(CHECKBOX_PATTERN);
     if (checkbox && current) {
       const checked = checkbox[1].toLowerCase() === "x";
-      current.items.push({ text: checkbox[2].trim(), checked });
+      currentItem = { text: checkbox[2].trim(), checked };
+      current.items.push(currentItem);
+      continue;
+    }
+    // Indented `- DOD:` sub-bullets attach to the most recent checkbox item.
+    const dod = line.match(DOD_PATTERN);
+    if (dod && currentItem) {
+      if (!currentItem.dod) {
+        currentItem.dod = [];
+      }
+      currentItem.dod.push(dod[1].trim());
     }
   }
   if (current) {

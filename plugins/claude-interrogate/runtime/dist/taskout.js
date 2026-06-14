@@ -145,7 +145,13 @@ export async function exportTaskout(input) {
                 .update(`${normalized}\0${occurrence}`)
                 .digest("hex")
                 .slice(0, 12);
-            return { text: item.text, checked: item.checked, key: `${epicKey}#${digest}` };
+            // DOD rides along as a separate field — never part of the hashed text, so keys stay stable.
+            return {
+                text: item.text,
+                checked: item.checked,
+                key: `${epicKey}#${digest}`,
+                ...(item.dod && item.dod.length > 0 ? { dod: item.dod } : {}),
+            };
         });
         return { heading: sub.heading, key: epicKey, items };
     });
@@ -383,6 +389,12 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
         question: "For each major area of work, list epic-level checklist items. Cite concept-doc sections inline.",
         rationale: "Epic-level granularity; the per-task breakdown lives in Plan/ docs.",
     });
+    questions.push({
+        id: "targeted-dods",
+        theme: "Per-item DOD",
+        question: "For each Targeted item, give 1-3 observable pass/fail criteria that confirm it is done (rendered as `- DOD:` sub-bullets under the item). An item with no specific criteria inherits the milestone DoD.",
+        rationale: "The board is the human-readable bridge from design to game; a concrete per-item requirement makes every downstream step (flay, verification, the ClickUp mirror) work against a spec, not just a title.",
+    });
     if (techDebt.length || carried.length) {
         questions.push({
             id: "blockers",
@@ -447,6 +459,11 @@ function renderTaskout(plan, today) {
             lines.push(`### ${sub.heading}`);
             for (const item of sub.items) {
                 lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+                if (item.dod && item.dod.length > 0) {
+                    for (const criterion of item.dod) {
+                        lines.push(`  - DOD: ${criterion}`);
+                    }
+                }
             }
             lines.push("");
         }
