@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.13] - 2026-06-14
+
+### Added
+
+- **Per-item Definition of Done** — a Targeted item can carry indented `- DOD:` sub-bullets (1-3 observable pass/fail criteria). Parsed by `parseTargeted` (`roadmap-parse`), surfaced as an optional `dod` field on `design_taskout_export` items, rendered on write-back, and prompted by a new `targeted-dods` interview question. DOD is held separately from the hashed item text, so existing item keys are unchanged. Pairs with the ClickUp mirror writing each item's DOD into its task body at create.
+
 ## [0.1.12] - 2026-06-11
 
 ### Fixed
