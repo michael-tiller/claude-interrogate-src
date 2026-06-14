@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.14] - 2026-06-14
+
+### Added
+
+- **Taste gate (flay)** — flay classifies each item at Assigned and, for taste-laden work (UI / panel / modal / designator-feel / icon / art / layout / copy), pushes up a ladder: collaborate (preferred) → Socratic-into-attempt (automation ceiling) → vibe-based (only on an explicit per-item opt-in). Auto mode never silently clears the gate, and `Completes:` on taste work requires the human to have actually seen the result, not just a green build. Vibe-shipping appends a finalize-UI follow-up to `.captain-sdlc/taste-debt.md` (a holding pen promoted into a Targeted item via `/taskout`, which re-trips the gate when flayed) — logged even when tiny, so the vibe path forces the HITL eventually instead of burying the polish. `/flay` and `/flay-auto` commands reference the gate.
+
 ## [0.1.13] - 2026-06-14
 
 ### Added
