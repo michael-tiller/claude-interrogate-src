@@ -19,3 +19,6 @@ Follow the `claude-interrogate-flay` skill with **mode = hitl**.
 4. State lives in `.captain-sdlc/flay-state.json` (single task — an existing file
    forces resume-or-abandon first). Outcome line goes to `scratch.md` on completion.
 5. Flay never selects, ranks, or recommends work. Assignment is the human's.
+6. **Taste gate.** For a taste-laden item (art / UX / UI), work the taste decisions
+   out WITH the human — enumerate options for icon / layout / feel, don't default
+   them. See the skill's taste gate.

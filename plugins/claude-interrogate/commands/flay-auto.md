@@ -19,3 +19,6 @@ Follow the `claude-interrogate-flay` skill with **mode = auto**.
    flay. Never retry-loop.
 5. The completion footer defaults to `Needs-QA:` — unwatched work is exactly what
    QA exists for. `Completes:` only if the human pre-authorized it when invoking.
+6. **Taste gate.** A taste-laden item (art / UX / UI — see the skill) does NOT
+   silently auto-run: STOP at Assigned and push for collaboration or a
+   Socratic-into-attempt. Vibe-based full-auto only on an explicit per-item opt-in.
