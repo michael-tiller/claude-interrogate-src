@@ -147,12 +147,13 @@ export async function analyzeTaskout(
 export async function generateTaskout(
   input: GenerateTaskoutInput,
 ): Promise<{ path: string; content: string }> {
-  validateRCId(input.plan.rc.id);
+  const plan = normalizeTaskoutPlan(input.plan);
+  validateRCId(plan.rc.id);
 
   const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    milestone: input.plan.rc.milestone,
-    name: input.plan.rc.name,
+    milestone: plan.rc.milestone,
+    name: plan.rc.name,
   });
   const rcAbs = path.resolve(rcDirAbs, filename);
   await assertWithinDir(rcAbs, rcDirAbs);
@@ -173,17 +174,54 @@ export async function generateTaskout(
   }
 
   if (input.mode === "maintenance") {
-    await enforceShippedTaskoutLock(rcAbs, input.plan);
+    await enforceShippedTaskoutLock(rcAbs, plan);
   }
 
   const today = formatIsoDate((input.clock ?? (() => new Date()))());
   const target = input.mode === "maintenance" ? withDraftSuffix(rcAbs) : rcAbs;
-  const content = renderTaskout(input.plan, today);
+  const content = renderTaskout(plan, today);
 
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, content, "utf8");
 
   return { path: target, content };
+}
+
+// confirmed_plan reaches the MCP layer typed only as `{ type: "object" }`, so the LLM
+// caller can omit array fields — `overrides` is absent on almost every plan. Default the
+// arrays (matching renderTaskout's "(none provided)" handling) and name the offending
+// field on a type mismatch. Without this, renderTaskout crashes with an opaque
+// "Cannot read properties of undefined (reading 'find')" that points at no field.
+function normalizeTaskoutPlan(plan: ConfirmedTaskoutPlan): ConfirmedTaskoutPlan {
+  if (!plan || typeof plan !== "object") {
+    throw new TaskoutError("invalid-plan", "confirmed_plan is required and must be an object.");
+  }
+  if (!plan.rc || typeof plan.rc !== "object") {
+    throw new TaskoutError(
+      "invalid-plan",
+      "confirmed_plan.rc is required (needs id, milestone, name, status).",
+    );
+  }
+  const arrayFields = [
+    "goals",
+    "targeted",
+    "blockersAndDeps",
+    "definitionOfDone",
+    "references",
+    "overrides",
+  ] as const;
+  for (const field of arrayFields) {
+    const value = plan[field];
+    if (value === undefined || value === null) {
+      (plan as unknown as Record<string, unknown>)[field] = [];
+    } else if (!Array.isArray(value)) {
+      throw new TaskoutError(
+        "invalid-plan",
+        `confirmed_plan.${field} must be an array (got ${typeof value}).`,
+      );
+    }
+  }
+  return plan;
 }
 
 export interface ExportTaskoutInput {
@@ -548,13 +586,9 @@ function buildTaskoutQuestions(
 
 function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
   const lines: string[] = [];
-  const status =
-    plan.overrides.find((o) => o.changedFields.includes("status-downgrade"))
-      ? plan.rc.status
-      : plan.rc.status;
 
   lines.push(`# ${plan.rc.kind === "release-candidate" ? "MRC" : "M"}${plan.rc.milestone} — ${plan.rc.name}`);
-  lines.push(`Status: ${status}`);
+  lines.push(`Status: ${plan.rc.status}`);
   lines.push(`Last Updated: ${today}`);
 
   const override = plan.overrides.find((o) => o.kind === "shipped-lock-bypass");

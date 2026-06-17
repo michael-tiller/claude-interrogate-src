@@ -260,6 +260,51 @@ describe("generateTaskout — mode mismatch and writes", () => {
     expect(written).not.toContain("  - DOD:");
   });
 
+  it("tolerates a plan that omits the optional overrides array", async () => {
+    const { root } = await makeProject();
+    const plan = buildTaskoutPlan({
+      id: "M8_QUESTS",
+      milestone: 8,
+      name: "QUESTS",
+      status: "Stub",
+      anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
+      blocks: [],
+      blockedBy: [],
+    });
+    // The MCP caller hands us `{ type: "object" }` — overrides is absent on most plans.
+    delete (plan as { overrides?: unknown }).overrides;
+    const result = await generateTaskout({
+      plan,
+      outputDir: root,
+      mode: "bootstrap-rc",
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    const written = await readFile(result.path, "utf8");
+    expect(written).toContain("# M8 — QUESTS");
+  });
+
+  it("names the offending field when a plan array is the wrong type", async () => {
+    const { root } = await makeProject();
+    const plan = buildTaskoutPlan({
+      id: "M8_QUESTS",
+      milestone: 8,
+      name: "QUESTS",
+      status: "Stub",
+      anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
+      blocks: [],
+      blockedBy: [],
+    });
+    (plan as { goals: unknown }).goals = "Goal 1.";
+    await expect(
+      generateTaskout({
+        plan,
+        outputDir: root,
+        mode: "bootstrap-rc",
+        roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+      }),
+    ).rejects.toThrow(/confirmed_plan\.goals must be an array/);
+  });
+
   it("writes a .draft.md sibling in maintenance mode", async () => {
     const { root } = await makeProject();
     await writeFile(
