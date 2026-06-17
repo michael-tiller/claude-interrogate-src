@@ -22,6 +22,7 @@ Claude Code commands (namespaced):
 - `/claude-interrogate:summarize <concept> [docs-dir]`
 - `/claude-interrogate:audit-docs [docs-dir]`
 - `/claude-interrogate:sync-docs [docs-dir]`
+- `/claude-interrogate:hunt [target]`
 - `/claude-interrogate:adr [title]`
 - `/claude-interrogate:roadmap [docs-dir]`
 - `/claude-interrogate:migrate-roadmap [output-dir]`
@@ -40,6 +41,7 @@ Codex note: Codex does not register new top-level `/...` slash commands from thi
   - `claude-interrogate-roadmap`
   - `claude-interrogate-taskout`
   - `claude-interrogate-scratch`
+  - `claude-interrogate-hunt`
 - Or type `$` and mention the skill by name.
 
 If you want to confirm the MCP server is attached in the current Codex session, run `/mcp`.

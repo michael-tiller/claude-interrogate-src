@@ -230,7 +230,18 @@ export interface ConfirmedScopePlan {
 
 export interface TargetedSubsection {
   heading: string;
-  items: { text: string; checked: boolean; dod?: string[] }[];
+  // Per-ticket fields beyond the checkbox text, each held separately so item keys
+  // (hashed from text only) stay stable:
+  //   dod             — observable pass/fail acceptance criteria (the done-bar)
+  //   howToImplement  — the concrete implementation path (file:line / seam)
+  //   designContext   — traps and rationale to carry into execution
+  items: {
+    text: string;
+    checked: boolean;
+    dod?: string[];
+    howToImplement?: string[];
+    designContext?: string[];
+  }[];
 }
 
 export interface BlockerEntry {
@@ -332,6 +343,10 @@ export interface TaskoutExportItem {
   key: string;
   /** Per-ticket acceptance criteria (the `- AC:` sub-bullets; legacy `- DOD:` also parses); omitted when none authored. */
   dod?: string[];
+  /** How to implement this ticket — concrete code path/seam, ideally `file:line` (the `- How:` sub-bullets); omitted when none authored. */
+  howToImplement?: string[];
+  /** Design context — traps and the why behind this ticket (the `- Why:` sub-bullets); omitted when none authored. */
+  designContext?: string[];
 }
 
 export interface TaskoutExportSection {

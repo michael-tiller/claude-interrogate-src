@@ -242,6 +242,8 @@ describe("generateTaskout — mode mismatch and writes", () => {
       blockedBy: [],
     });
     plan.targeted[0].items[0].dod = ["renders as an AC bullet"];
+    plan.targeted[0].items[0].howToImplement = ["touch src/foo.ts:42, reuse the bar seam"];
+    plan.targeted[0].items[0].designContext = ["the cache is stale on first call — prime it"];
     const result = await generateTaskout({
       plan,
       outputDir: root,
@@ -258,6 +260,54 @@ describe("generateTaskout — mode mismatch and writes", () => {
     // Acceptance criteria render under the new `- AC:` token, not legacy `- DOD:`.
     expect(written).toContain("  - AC: renders as an AC bullet");
     expect(written).not.toContain("  - DOD:");
+    // Warm-ticket spec renders under `- How:` / `- Why:` after the AC bullets.
+    expect(written).toContain("  - How: touch src/foo.ts:42, reuse the bar seam");
+    expect(written).toContain("  - Why: the cache is stale on first call — prime it");
+  });
+
+  it("tolerates a plan that omits the optional overrides array", async () => {
+    const { root } = await makeProject();
+    const plan = buildTaskoutPlan({
+      id: "M8_QUESTS",
+      milestone: 8,
+      name: "QUESTS",
+      status: "Stub",
+      anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
+      blocks: [],
+      blockedBy: [],
+    });
+    // The MCP caller hands us `{ type: "object" }` — overrides is absent on most plans.
+    delete (plan as { overrides?: unknown }).overrides;
+    const result = await generateTaskout({
+      plan,
+      outputDir: root,
+      mode: "bootstrap-rc",
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    const written = await readFile(result.path, "utf8");
+    expect(written).toContain("# M8 — QUESTS");
+  });
+
+  it("names the offending field when a plan array is the wrong type", async () => {
+    const { root } = await makeProject();
+    const plan = buildTaskoutPlan({
+      id: "M8_QUESTS",
+      milestone: 8,
+      name: "QUESTS",
+      status: "Stub",
+      anchors: [{ kind: "Concept", path: "Concept/quests.md" }],
+      blocks: [],
+      blockedBy: [],
+    });
+    (plan as { goals: unknown }).goals = "Goal 1.";
+    await expect(
+      generateTaskout({
+        plan,
+        outputDir: root,
+        mode: "bootstrap-rc",
+        roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+      }),
+    ).rejects.toThrow(/confirmed_plan\.goals must be an array/);
   });
 
   it("writes a .draft.md sibling in maintenance mode", async () => {

@@ -196,6 +196,8 @@ export interface TargetedSubsection {
         text: string;
         checked: boolean;
         dod?: string[];
+        howToImplement?: string[];
+        designContext?: string[];
     }[];
 }
 export interface BlockerEntry {
@@ -297,6 +299,10 @@ export interface TaskoutExportItem {
     key: string;
     /** Per-ticket acceptance criteria (the `- AC:` sub-bullets; legacy `- DOD:` also parses); omitted when none authored. */
     dod?: string[];
+    /** How to implement this ticket — concrete code path/seam, ideally `file:line` (the `- How:` sub-bullets); omitted when none authored. */
+    howToImplement?: string[];
+    /** Design context — traps and the why behind this ticket (the `- Why:` sub-bullets); omitted when none authored. */
+    designContext?: string[];
 }
 export interface TaskoutExportSection {
     heading: string;

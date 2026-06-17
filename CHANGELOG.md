@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.16] - 2026-06-17
+
+### Added
+
+- **Deep-shape-first taskout** — a *warm* ticket (one whose shape already exists in a `Plan/` doc or prior recon) can now carry its full implementation spec at taskout time, not just a title plus acceptance criteria. Two new per-ticket sub-bullets parse, render, and export alongside `- AC:`: `- How:` (the concrete implementation path — `file:line` / seam, held as `howToImplement`) and `- Why:` (traps + rationale, held as `designContext`). Both ride along as separate fields — never folded into the hashed item text — so item keys stay byte-stable. The taskout interview gains a warm-only `targeted-spec` question; *cold* tickets (no prior shape) stay thin and are spec'd at flay. `design_taskout_export` emits both fields (omitted when unauthored), so the ClickUp mirror and flay inherit execution context instead of re-deriving it.
+- **`/hunt` (find and destroy debt)** — a new semi-mean review command that scours the whole project or a directed `[target]` for bugs, gaps, implementation-vs-design drift, and over-engineering (KISS/DRY/YAGNI), then logs a dated, severity-ordered **kill list** to the roadmap tech-debt file (each finding with `file:line` evidence and the cheapest fix) and offers to destroy the `LOW`/one-line bounties immediately. Ships as a plugin command, a local dogfood mirror, and a Codex/Skill-tool `SKILL.md` wrapper.
+
+### Changed
+
+- **flay warm/cold planning** — at Planning, flay reads the assigned item's spec from the export: a *warm* ticket (carries `howToImplement` / `designContext`) carries that spec forward as the plan's spine (verify against code, fill gaps, correct drift) rather than re-deriving it; a *cold* ticket derives the plan from scratch as before.
+- **Taskout skill text** — the MCP `taskout` prompt's Targeted guidance still described the pre-agile "epic-level checklist items" model (a leftover the 0.1.15 agile rework missed in `server.ts`); it now matches the agile-correct epic/ticket/AC framing and documents warm-ticket spec capture.
+
+### Fixed
+
+- **`design_taskout_generate` opaque crash** — `confirmed_plan` reaches the MCP layer typed only as a bare object, so an LLM caller routinely omits optional arrays (e.g. `overrides`). The renderer then crashed with `Cannot read properties of undefined (reading 'find')`, naming no field. `generate` now normalizes missing arrays and validates `confirmed_plan` shape up front, failing with the offending field named.
+
 ## [0.1.15] - 2026-06-17
 
 ### Changed
