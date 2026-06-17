@@ -131,6 +131,7 @@ Current command surface:
 - \`/claude-interrogate:summarize <concept> [docs-dir]\`
 - \`/claude-interrogate:audit-docs [docs-dir]\`
 - \`/claude-interrogate:sync-docs [docs-dir]\`
+- \`/claude-interrogate:hunt [target]\`
 - \`/claude-interrogate:adr [title]\`
 - \`/claude-interrogate:roadmap [docs-dir]\`
 - \`/claude-interrogate:migrate-roadmap [output-dir]\`
@@ -169,6 +170,7 @@ Codex workflows are exposed as skills (not new top-level slash commands). Run \`
 - \`claude-interrogate-taskout\`
 - \`claude-interrogate-flay\`
 - \`claude-interrogate-scratch\`
+- \`claude-interrogate-hunt\`
 
 Repository:
 

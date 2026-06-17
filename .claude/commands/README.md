@@ -26,6 +26,7 @@ Available commands:
 - `/summarize <concept> [docs-dir]`
 - `/audit-docs [docs-dir]`
 - `/sync-docs [docs-dir]`
+- `/hunt [target]`
 - `/adr [title]`
 - `/migrate-roadmap [output-dir]`
 - `/flay <task-key> [output-dir]`
