@@ -241,6 +241,7 @@ describe("generateTaskout — mode mismatch and writes", () => {
       blocks: [],
       blockedBy: [],
     });
+    plan.targeted[0].items[0].dod = ["renders as an AC bullet"];
     const result = await generateTaskout({
       plan,
       outputDir: root,
@@ -254,6 +255,9 @@ describe("generateTaskout — mode mismatch and writes", () => {
     const written = await readFile(result.path, "utf8");
     expect(written).toContain("# M8 — QUESTS");
     expect(written).toContain("Last Updated: 2026-05-28");
+    // Acceptance criteria render under the new `- AC:` token, not legacy `- DOD:`.
+    expect(written).toContain("  - AC: renders as an AC bullet");
+    expect(written).not.toContain("  - DOD:");
   });
 
   it("writes a .draft.md sibling in maintenance mode", async () => {

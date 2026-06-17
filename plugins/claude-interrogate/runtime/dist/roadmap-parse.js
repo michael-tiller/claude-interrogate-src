@@ -17,9 +17,11 @@ const SECTION_ALIASES = {
 };
 const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
-// Per-item DOD: an indented `- DOD:` sub-bullet under a Targeted checkbox item.
-// Held as a SEPARATE field (never folded into the hashed item text) so item keys stay stable.
-const DOD_PATTERN = /^\s+-\s+DOD:\s*(.+)$/i;
+// Per-ticket acceptance criteria: an indented `- AC:` sub-bullet under a Targeted
+// checkbox item. Legacy `- DOD:` is still accepted so RC files authored before the
+// rename keep parsing. Held as a SEPARATE field (never folded into the hashed item
+// text) so item keys stay stable.
+const DOD_PATTERN = /^\s+-\s+(?:AC|DOD):\s*(.+)$/i;
 const BULLET_PATTERN = /^- (.+)$/;
 // Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
 const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;

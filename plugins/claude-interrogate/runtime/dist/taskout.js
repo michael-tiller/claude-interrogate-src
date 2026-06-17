@@ -386,28 +386,28 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
     questions.push({
         id: "targeted",
         theme: "Targeted",
-        question: "For each major area of work, list epic-level checklist items. Cite concept-doc sections inline.",
-        rationale: "Epic-level granularity; the per-task breakdown lives in Plan/ docs.",
+        question: "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets — one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order; that order is the priority. If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
+        rationale: "Agile-correct: epic = a feature, ticket = one INVEST-sized goal, backlog ordered by execution with dependencies explicit. Sub-task breakdowns live in Plan/ docs.",
     });
     questions.push({
         id: "targeted-dods",
-        theme: "Per-item DOD",
-        question: "For each Targeted item, give 1-3 observable pass/fail criteria that confirm it is done (rendered as `- DOD:` sub-bullets under the item). An item with no specific criteria inherits the milestone DoD.",
-        rationale: "The board is the human-readable bridge from design to game; a concrete per-item requirement makes every downstream step (flay, verification, the ClickUp mirror) work against a spec, not just a title.",
+        theme: "Acceptance Criteria",
+        question: "For each ticket, give 1-3 observable pass/fail acceptance criteria — the spec that says THIS ticket is done (rendered as `- AC:` sub-bullets under the item). If the criteria need an \"and\" across two unrelated checks, the ticket is two tickets — split it. A ticket with no specific criteria inherits the milestone Definition of Done.",
+        rationale: "Per-ticket acceptance criteria (distinct from the RC-wide Definition of Done) give flay, verification, and the ClickUp mirror a spec to work against, not just a title. The single-criterion test is also the sizing rule: needing \"and\" means it is two tickets.",
     });
-    if (techDebt.length || carried.length) {
-        questions.push({
-            id: "blockers",
-            theme: "Blockers & Dependencies",
-            question: "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items). Add any external pending decisions.",
-            rationale: "Surfaces anything that would delay the work.",
-        });
-    }
+    questions.push({
+        id: "blockers",
+        theme: "Blockers & Dependencies",
+        question: techDebt.length || carried.length
+            ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order."
+            : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls).",
+        rationale: "Known dependencies up front make the ticket order a real execution plan, not a guess.",
+    });
     questions.push({
         id: "dod",
         theme: "Definition of Done",
-        question: "List 4-8 testable pass/fail assertions that gate ship.",
-        rationale: "DoD is the ship gate, not a wish list.",
+        question: "List 4-8 testable pass/fail assertions that gate ship for the whole RC — the shared bar every ticket also clears, distinct from per-ticket acceptance criteria.",
+        rationale: "The RC-wide Definition of Done is the global ship gate, not a wish list; tickets inherit it on top of their own acceptance criteria.",
     });
     return questions;
 }
@@ -461,7 +461,7 @@ function renderTaskout(plan, today) {
                 lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
                 if (item.dod && item.dod.length > 0) {
                     for (const criterion of item.dod) {
-                        lines.push(`  - DOD: ${criterion}`);
+                        lines.push(`  - AC: ${criterion}`);
                     }
                 }
             }

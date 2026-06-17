@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.15] - 2026-06-17
+
+### Changed
+
+- **Agile-correct taskout** — the per-RC interview and its directives (`SKILL.md`, `commands/taskout.md`) now use standard agile terms and resolve a prior contradiction (the skill called Targeted items "coarse work units" while the command called them "epic-level checklist items"). A `### heading` is an **epic** (a feature/area); each item under it is a **ticket** — one INVEST-sized goal, ≈ one ClickUp Task, listed in **execution order** (that order is the priority). Inter-ticket and external **dependencies** are always solicited: the Blockers & Dependencies question is no longer gated on auto-surfaced tech-debt/carried items. A de-risking **spike** is its own ticket.
+- **Acceptance Criteria vs Definition of Done** — per-ticket criteria are now named **Acceptance Criteria** (the "is THIS ticket done" spec) and explicitly distinguished from the RC-wide **Definition of Done** (the shared ship gate every ticket inherits on top of its own criteria). The sizing rule is baked into the prompt: criteria needing an "and" across two unrelated checks means it is two tickets — split it.
+- **`- AC:` token with `- DOD:` dual-parse** — acceptance criteria now render under `- AC:` instead of `- DOD:`. The parser accepts **both** tokens, so RC files authored before the rename (e.g. dirigible2D's 19 RC files) keep parsing unchanged. The export `dod` field name is unchanged, so the ClickUp mirror — which reads the export field, not the raw token — is unaffected. Downstream readers that grep the raw markdown should accept both tokens.
+
 ## [0.1.14] - 2026-06-14
 
 ### Added

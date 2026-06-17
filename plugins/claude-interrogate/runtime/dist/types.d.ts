@@ -295,7 +295,7 @@ export interface TaskoutExportItem {
     text: string;
     checked: boolean;
     key: string;
-    /** Per-item Definition of Done (the `- DOD:` sub-bullets); omitted when none authored. */
+    /** Per-ticket acceptance criteria (the `- AC:` sub-bullets; legacy `- DOD:` also parses); omitted when none authored. */
     dod?: string[];
 }
 export interface TaskoutExportSection {

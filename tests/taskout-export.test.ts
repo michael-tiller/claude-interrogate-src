@@ -273,4 +273,23 @@ Per-item DOD round-trip.
     expect(stripped.targeted[0].items[0].dod).toBeUndefined();
     expect(stripped.targeted[0].items[0].key).toBe(keyWithDod);
   });
+
+  it("parses the new `- AC:` token identically to legacy `- DOD:` (dual-parse)", async () => {
+    const dir = await makeTempDir();
+    // Same fixture as RC_WITH_DOD but authored with the new acceptance-criteria token.
+    await writeRC(dir, "M3_ACTEST.md", RC_WITH_DOD.replace(/- DOD:/g, "- AC:"));
+
+    const result = await exportTaskout({
+      rcId: "M3_ACTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    // `- AC:` lands in the same `dod` field, in order — proving the parser accepts both.
+    expect(result.targeted[0].items[0].dod).toEqual([
+      "a colonist accepts a dispatched job",
+      "the job completes and is logged",
+    ]);
+    expect(result.targeted[0].items[1].dod).toBeUndefined();
+  });
 });
