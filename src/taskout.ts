@@ -279,12 +279,18 @@ export async function exportTaskout(
         .update(`${normalized}\0${occurrence}`)
         .digest("hex")
         .slice(0, 12);
-      // DOD rides along as a separate field — never part of the hashed text, so keys stay stable.
+      // AC / How / Why ride along as separate fields — never part of the hashed text, so keys stay stable.
       return {
         text: item.text,
         checked: item.checked,
         key: `${epicKey}#${digest}`,
         ...(item.dod && item.dod.length > 0 ? { dod: item.dod } : {}),
+        ...(item.howToImplement && item.howToImplement.length > 0
+          ? { howToImplement: item.howToImplement }
+          : {}),
+        ...(item.designContext && item.designContext.length > 0
+          ? { designContext: item.designContext }
+          : {}),
       };
     });
 
@@ -565,6 +571,15 @@ function buildTaskoutQuestions(
       "Per-ticket acceptance criteria (distinct from the RC-wide Definition of Done) give flay, verification, and the ClickUp mirror a spec to work against, not just a title. The single-criterion test is also the sizing rule: needing \"and\" means it is two tickets.",
   });
   questions.push({
+    id: "targeted-spec",
+    theme: "Ticket spec (warm only)",
+    question:
+      "Does a code-grounded plan already exist for any of these tickets (a Plan/ doc, prior recon, a settled design)? If so, fill the ticket's spec NOW: `- How:` the concrete implementation path (file:line / seam to touch) and `- Why:` the traps and rationale to carry into execution. Leave a ticket's spec blank only when no such shape exists yet — those stay thin and are spec'd at flay time. Do not invent a path you have not actually traced.",
+    rationale:
+      "Warm tickets (shape already exists) get the full spec at taskout so flay and the tracker inherit execution context instead of re-deriving it. Cold tickets defer — lazy-spec-at-flay is correct only when there is no prior shape to lose.",
+    dependsOn: "targeted",
+  });
+  questions.push({
     id: "blockers",
     theme: "Blockers & Dependencies",
     question:
@@ -631,6 +646,16 @@ function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
         if (item.dod && item.dod.length > 0) {
           for (const criterion of item.dod) {
             lines.push(`  - AC: ${criterion}`);
+          }
+        }
+        if (item.howToImplement && item.howToImplement.length > 0) {
+          for (const step of item.howToImplement) {
+            lines.push(`  - How: ${step}`);
+          }
+        }
+        if (item.designContext && item.designContext.length > 0) {
+          for (const note of item.designContext) {
+            lines.push(`  - Why: ${note}`);
           }
         }
       }

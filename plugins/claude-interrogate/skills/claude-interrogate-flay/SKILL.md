@@ -51,9 +51,16 @@ Unknown `schema_version` in an existing file → refuse and ask the human.
    show the export's nearby keys, let the human re-pick — never fuzzy-assign.
    Already-checked item → stop and say so (the work appears done). Write the state
    file, then classify the item for taste (see **Taste gate**) before planning.
-2. **Planning.** Enter Claude Code plan mode for the implementation design. Plan
-   approval (ExitPlanMode) is a harness gate in BOTH modes. On approval → record
-   `plan-approved`.
+2. **Planning.** Enter Claude Code plan mode for the implementation design. First
+   read the assigned item's spec from the export. **Warm vs cold:**
+   - *Warm* — the item carries `howToImplement` / `designContext` (taskout already
+     grounded it in a Plan/ doc). Carry that spec forward as the plan's spine:
+     verify it against the live code, fill gaps, correct drift. Do NOT re-derive it
+     from scratch — that repeats work already done and loses the captured *why*.
+   - *Cold* — no spec on the item. Derive the plan from scratch as normal.
+
+   Plan approval (ExitPlanMode) is a harness gate in BOTH modes. On approval →
+   record `plan-approved`.
 3. **Implementing.** Execute the approved plan. HITL: confirm before starting;
    auto: proceed.
 4. **Verifying.** Run the project's OWN verify commands — from its CLAUDE.md,
@@ -124,6 +131,8 @@ here, never a reason to skip the trail.
 ## Hard rules
 
 - Keys come only from `design_taskout_export` — never derived, never guessed.
+- Warm tickets (export carries `howToImplement` / `designContext`) carry their spec
+  forward at Planning; re-derive from scratch only for cold tickets.
 - Flay never picks work, never reorders the roadmap, never rewords a task.
 - No git hooks; everything is in-session orchestration.
 - Downstream blades read the state file advisorily; flay never calls a tracker.

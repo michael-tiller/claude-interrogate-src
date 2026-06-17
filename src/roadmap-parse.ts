@@ -28,11 +28,13 @@ const SECTION_ALIASES: Record<string, string[]> = {
 
 const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
-// Per-ticket acceptance criteria: an indented `- AC:` sub-bullet under a Targeted
-// checkbox item. Legacy `- DOD:` is still accepted so RC files authored before the
-// rename keep parsing. Held as a SEPARATE field (never folded into the hashed item
-// text) so item keys stay stable.
-const DOD_PATTERN = /^\s+-\s+(?:AC|DOD):\s*(.+)$/i;
+// Per-ticket sub-bullets: an indented `- <label>:` line under a Targeted checkbox
+// item. Each label routes to a SEPARATE field (never folded into the hashed item
+// text) so item keys stay stable:
+//   AC  — observable acceptance criteria (legacy `DOD` still parses post-rename)
+//   How — the implementation path (file:line / seam)
+//   Why — design context: traps and rationale
+const ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why):\s*(.+)$/i;
 const BULLET_PATTERN = /^- (.+)$/;
 // Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
 const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
@@ -406,7 +408,15 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
   const lines = body.split(/\r?\n/);
   const subsections: TargetedSubsection[] = [];
   let current: TargetedSubsection | null = null;
-  let currentItem: { text: string; checked: boolean; dod?: string[] } | null = null;
+  let currentItem:
+    | {
+        text: string;
+        checked: boolean;
+        dod?: string[];
+        howToImplement?: string[];
+        designContext?: string[];
+      }
+    | null = null;
 
   for (const line of lines) {
     const heading = line.match(/^###\s+(.+?)\s*$/);
@@ -425,13 +435,24 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
       current.items.push(currentItem);
       continue;
     }
-    // Indented `- DOD:` sub-bullets attach to the most recent checkbox item.
-    const dod = line.match(DOD_PATTERN);
-    if (dod && currentItem) {
-      if (!currentItem.dod) {
-        currentItem.dod = [];
+    // Indented `- AC:` / `- How:` / `- Why:` sub-bullets attach to the most recent
+    // checkbox item, each into its own field.
+    const sub = line.match(ITEM_SUBSPEC_PATTERN);
+    if (sub && currentItem) {
+      const value = sub[2].trim();
+      switch (sub[1].toLowerCase()) {
+        case "how":
+          if (!currentItem.howToImplement) currentItem.howToImplement = [];
+          currentItem.howToImplement.push(value);
+          break;
+        case "why":
+          if (!currentItem.designContext) currentItem.designContext = [];
+          currentItem.designContext.push(value);
+          break;
+        default: // ac | dod
+          if (!currentItem.dod) currentItem.dod = [];
+          currentItem.dod.push(value);
       }
-      currentItem.dod.push(dod[1].trim());
     }
   }
   if (current) {

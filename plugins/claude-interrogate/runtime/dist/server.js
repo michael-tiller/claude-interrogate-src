@@ -22474,7 +22474,7 @@ var SECTION_ALIASES = {
 };
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
-var DOD_PATTERN = /^\s+-\s+(?:AC|DOD):\s*(.+)$/i;
+var ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why):\s*(.+)$/i;
 var BULLET_PATTERN = /^- (.+)$/;
 var STATUS_PATTERN2 = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
@@ -22798,12 +22798,25 @@ function parseTargeted(sections) {
       current.items.push(currentItem);
       continue;
     }
-    const dod = line.match(DOD_PATTERN);
-    if (dod && currentItem) {
-      if (!currentItem.dod) {
-        currentItem.dod = [];
+    const sub = line.match(ITEM_SUBSPEC_PATTERN);
+    if (sub && currentItem) {
+      const value = sub[2].trim();
+      switch (sub[1].toLowerCase()) {
+        case "how":
+          if (!currentItem.howToImplement)
+            currentItem.howToImplement = [];
+          currentItem.howToImplement.push(value);
+          break;
+        case "why":
+          if (!currentItem.designContext)
+            currentItem.designContext = [];
+          currentItem.designContext.push(value);
+          break;
+        default:
+          if (!currentItem.dod)
+            currentItem.dod = [];
+          currentItem.dod.push(value);
       }
-      currentItem.dod.push(dod[1].trim());
     }
   }
   if (current) {
@@ -23485,11 +23498,12 @@ async function analyzeTaskout(input) {
   };
 }
 async function generateTaskout(input) {
-  validateRCId(input.plan.rc.id);
+  const plan = normalizeTaskoutPlan(input.plan);
+  validateRCId(plan.rc.id);
   const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-    milestone: input.plan.rc.milestone,
-    name: input.plan.rc.name
+    milestone: plan.rc.milestone,
+    name: plan.rc.name
   });
   const rcAbs = path13.resolve(rcDirAbs, filename);
   await assertWithinDir(rcAbs, rcDirAbs);
@@ -23501,14 +23515,39 @@ async function generateTaskout(input) {
     throw new TaskoutError("mode-mismatch", `Caller said mode='bootstrap-rc' but ${rcAbs} already exists. Use mode='maintenance' instead.`);
   }
   if (input.mode === "maintenance") {
-    await enforceShippedTaskoutLock(rcAbs, input.plan);
+    await enforceShippedTaskoutLock(rcAbs, plan);
   }
   const today = formatIsoDate3((input.clock ?? (() => /* @__PURE__ */ new Date()))());
   const target = input.mode === "maintenance" ? withDraftSuffix2(rcAbs) : rcAbs;
-  const content = renderTaskout(input.plan, today);
+  const content = renderTaskout(plan, today);
   await mkdir3(path13.dirname(target), { recursive: true });
   await writeFile5(target, content, "utf8");
   return { path: target, content };
+}
+function normalizeTaskoutPlan(plan) {
+  if (!plan || typeof plan !== "object") {
+    throw new TaskoutError("invalid-plan", "confirmed_plan is required and must be an object.");
+  }
+  if (!plan.rc || typeof plan.rc !== "object") {
+    throw new TaskoutError("invalid-plan", "confirmed_plan.rc is required (needs id, milestone, name, status).");
+  }
+  const arrayFields = [
+    "goals",
+    "targeted",
+    "blockersAndDeps",
+    "definitionOfDone",
+    "references",
+    "overrides"
+  ];
+  for (const field of arrayFields) {
+    const value = plan[field];
+    if (value === void 0 || value === null) {
+      plan[field] = [];
+    } else if (!Array.isArray(value)) {
+      throw new TaskoutError("invalid-plan", `confirmed_plan.${field} must be an array (got ${typeof value}).`);
+    }
+  }
+  return plan;
 }
 async function exportTaskout(input) {
   validateRCId(input.rcId);
@@ -23547,7 +23586,9 @@ async function exportTaskout(input) {
         text: item.text,
         checked: item.checked,
         key: `${epicKey}#${digest}`,
-        ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {}
+        ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {},
+        ...item.howToImplement && item.howToImplement.length > 0 ? { howToImplement: item.howToImplement } : {},
+        ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {}
       };
     });
     return { heading: sub.heading, key: epicKey, items };
@@ -23789,6 +23830,13 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
     rationale: 'Per-ticket acceptance criteria (distinct from the RC-wide Definition of Done) give flay, verification, and the ClickUp mirror a spec to work against, not just a title. The single-criterion test is also the sizing rule: needing "and" means it is two tickets.'
   });
   questions.push({
+    id: "targeted-spec",
+    theme: "Ticket spec (warm only)",
+    question: "Does a code-grounded plan already exist for any of these tickets (a Plan/ doc, prior recon, a settled design)? If so, fill the ticket's spec NOW: `- How:` the concrete implementation path (file:line / seam to touch) and `- Why:` the traps and rationale to carry into execution. Leave a ticket's spec blank only when no such shape exists yet \u2014 those stay thin and are spec'd at flay time. Do not invent a path you have not actually traced.",
+    rationale: "Warm tickets (shape already exists) get the full spec at taskout so flay and the tracker inherit execution context instead of re-deriving it. Cold tickets defer \u2014 lazy-spec-at-flay is correct only when there is no prior shape to lose.",
+    dependsOn: "targeted"
+  });
+  questions.push({
     id: "blockers",
     theme: "Blockers & Dependencies",
     question: techDebt.length || carried.length ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order." : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls).",
@@ -23804,9 +23852,8 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
 }
 function renderTaskout(plan, today) {
   const lines = [];
-  const status = plan.overrides.find((o) => o.changedFields.includes("status-downgrade")) ? plan.rc.status : plan.rc.status;
   lines.push(`# ${plan.rc.kind === "release-candidate" ? "MRC" : "M"}${plan.rc.milestone} \u2014 ${plan.rc.name}`);
-  lines.push(`Status: ${status}`);
+  lines.push(`Status: ${plan.rc.status}`);
   lines.push(`Last Updated: ${today}`);
   const override = plan.overrides.find((o) => o.kind === "shipped-lock-bypass");
   if (override) {
@@ -23848,6 +23895,16 @@ function renderTaskout(plan, today) {
         if (item.dod && item.dod.length > 0) {
           for (const criterion of item.dod) {
             lines.push(`  - AC: ${criterion}`);
+          }
+        }
+        if (item.howToImplement && item.howToImplement.length > 0) {
+          for (const step of item.howToImplement) {
+            lines.push(`  - How: ${step}`);
+          }
+        }
+        if (item.designContext && item.designContext.length > 0) {
+          for (const note of item.designContext) {
+            lines.push(`  - Why: ${note}`);
           }
         }
       }
@@ -24067,7 +24124,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "design_taskout_export",
-      description: "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers.",
+      description: "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers. Each ticket carries its text, checked state, stable key, and any authored per-ticket spec as separate ride-along fields: `dod` (acceptance criteria), `howToImplement`, and `designContext` \u2014 omitted when not authored.",
       inputSchema: {
         type: "object",
         properties: {
@@ -25281,7 +25338,8 @@ function taskoutPrompt(rcId, docsDir, outputDir, styleTemplatePath) {
     "",
     "Behavior:",
     "- Do not dump the whole question set to the user.",
-    "- Granularity inside Targeted is epic-level checklist items, not story-level tasks. Detailed task breakdowns belong in Plan/ docs.",
+    "- Targeted is agile-correct: each `### heading` is an epic (a feature/area); each item is a ticket \u2014 one INVEST-sized goal in execution order, with 1-3 `- AC:` acceptance criteria. Sub-task breakdowns belong in Plan/ docs.",
+    "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now \u2014 `- How:` the implementation path (file:line / seam) and `- Why:` the traps and rationale \u2014 so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
     "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
     "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");

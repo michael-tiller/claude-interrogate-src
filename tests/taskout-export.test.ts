@@ -292,4 +292,72 @@ Per-item DOD round-trip.
     ]);
     expect(result.targeted[0].items[1].dod).toBeUndefined();
   });
+
+  const RC_WITH_SPEC = `# M3 — SPECTEST
+Status: Active
+
+## Definition of Done
+- [ ] Ships.
+
+## Theme
+Warm-ticket spec round-trip.
+
+## Goals
+- Capture How/Why.
+
+## Targeted
+### Dispatch
+- [ ] Wire the dispatcher
+  - AC: a colonist accepts a dispatched job
+  - How: touch src/dispatch.ts:88, reuse the jobQueue seam
+  - Why: the queue is drained lazily — enqueue before the first tick
+- [ ] Plain item with no spec
+
+## Blockers & Dependencies
+- None identified.
+
+## References
+- (none)
+`;
+
+  it("attaches How/Why to their item as separate fields, omits them when none, and keeps keys stable", async () => {
+    const dir = await makeTempDir();
+    await writeRC(dir, "M3_SPECTEST.md", RC_WITH_SPEC);
+
+    const result = await exportTaskout({
+      rcId: "M3_SPECTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    const items = result.targeted[0].items;
+    expect(items[0].dod).toEqual(["a colonist accepts a dispatched job"]);
+    expect(items[0].howToImplement).toEqual(["touch src/dispatch.ts:88, reuse the jobQueue seam"]);
+    expect(items[0].designContext).toEqual([
+      "the queue is drained lazily — enqueue before the first tick",
+    ]);
+    // No spec authored → fields absent entirely (not empty arrays).
+    expect(items[1].howToImplement).toBeUndefined();
+    expect(items[1].designContext).toBeUndefined();
+
+    // How/Why are SEPARATE fields, never hashed into the key: stripping them must leave
+    // the item key byte-identical, or the tracker mirror orphans the task.
+    const keyWithSpec = items[0].key;
+    await writeRC(
+      dir,
+      "M3_SPECTEST.md",
+      RC_WITH_SPEC.replace("  - How: touch src/dispatch.ts:88, reuse the jobQueue seam\n", "").replace(
+        "  - Why: the queue is drained lazily — enqueue before the first tick\n",
+        "",
+      ),
+    );
+    const stripped = await exportTaskout({
+      rcId: "M3_SPECTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    expect(stripped.targeted[0].items[0].howToImplement).toBeUndefined();
+    expect(stripped.targeted[0].items[0].designContext).toBeUndefined();
+    expect(stripped.targeted[0].items[0].key).toBe(keyWithSpec);
+  });
 });
