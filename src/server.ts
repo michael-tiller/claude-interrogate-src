@@ -169,7 +169,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "design_taskout_export",
       description:
-        "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers. Each ticket carries its text, checked state, stable key, and any authored per-ticket spec as separate ride-along fields: `dod` (acceptance criteria), `howToImplement`, and `designContext` — omitted when not authored.",
+        "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers. Each ticket carries its text, checked state, stable key, and any authored per-ticket spec as separate ride-along fields: `dod` (acceptance criteria), `howToImplement`, `designContext`, `blockedBy` (upstream ticket keys), and `owner` — omitted when not authored.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1594,7 +1594,7 @@ function taskoutPrompt(
     "Behavior:",
     "- Do not dump the whole question set to the user.",
     "- Targeted is agile-correct: each `### heading` is an epic (a feature/area); each item is a ticket — one INVEST-sized goal in execution order, with 1-3 `- AC:` acceptance criteria. Sub-task breakdowns belong in Plan/ docs.",
-    "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now — `- How:` the implementation path (file:line / seam) and `- Why:` the traps and rationale — so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
+    "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now — `- How:` the implementation path and `- Why:` the traps and rationale — so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Anchor `- How:` on SYMBOLS (Type.Method / the named call site / the seam), not bare line numbers, which drift on the next edit; if you cite a line number, mark it `~approx, verify`. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
     "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
     "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");

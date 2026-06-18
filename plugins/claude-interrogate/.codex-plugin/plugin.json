@@ -1,6 +1,6 @@
 {
   "name": "claude-interrogate",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Design-doc interrogation plugin for Claude Code, with an MCP server that can also be attached from Codex.",
   "author": {
     "name": "Michael Tiller",

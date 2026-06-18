@@ -38,6 +38,25 @@ Create `.captain-sdlc/` lazily; ensure the consuming project gitignores
 `flay-state.json` (it is churning local state — see captain-sdlc conventions).
 Unknown `schema_version` in an existing file → refuse and ask the human.
 
+## Ledger: `.captain-sdlc/blocked-hitl.json`
+
+Flay-owned, also churning local state — gitignore it alongside `flay-state.json`.
+It records keys an auto run downgraded to HITL, keyed by task key (entries are
+created lazily on the first downgrade). Lifecycle:
+
+- **Append** on the auto→HITL downgrade at Verifying (phase 4).
+- **Clear the entry** at Done (phase 6), when the HITL resume completes and the
+  state file is deleted.
+- **Auto-clean** when the item flips to `[x]` (the work is done — the marker is moot;
+  the sync side that observes the checkbox flip drops the entry, same trigger that
+  retires the `blocked-hitl` tag).
+- **Manual reset:** to clear a stranded marker by hand, delete its entry from the
+  JSON (or delete the whole file to reset all). Use this if a downgrade was logged
+  but the flay was abandoned outside the Done path.
+
+The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and let
+`/flay` proceed) on a downgraded key.
+
 ## Phases
 
 `assigned → planning → plan-approved → implementing → verifying → committing → done`
@@ -49,8 +68,38 @@ Unknown `schema_version` in an existing file → refuse and ask the human.
 1. **Assigned.** Validate the key against a fresh `design_taskout_export` for its
    RC (key prefix before the first `#`). Exact match only. Unknown key → stop,
    show the export's nearby keys, let the human re-pick — never fuzzy-assign.
-   Already-checked item → stop and say so (the work appears done). Write the state
-   file, then classify the item for taste (see **Taste gate**) before planning.
+   Already-checked item → stop and say so (the work appears done). Then run the
+   **Blocked-detector** (below); if it cancels, abort here — do NOT write the state
+   file. Otherwise write the state file, then classify the item for taste (see
+   **Taste gate**) before planning.
+
+   **Blocked-detector (pre-flight, READ-ONLY).** Before committing to the work,
+   confirm it is actually runnable. This reads only — the fresh `design_taskout_export`
+   plus the `.captain-sdlc/blocked-hitl.json` ledger — and never writes the roadmap,
+   the tracker, or anything but its own cancel decision (Principle 1; see Hard rules).
+   Locate the assigned item in the export and check, in order:
+   - **`blocked-dep`** — the item carries a `blockedBy` list. For each listed blocker
+     key, find it in the same export and read its `checked` flag. If ANY blocker has
+     `checked === false`, the work is not runnable yet → **cancel in BOTH modes**:
+     `Blocked by <key> "<text>" — owned by <owner | "unassigned">. Resolve it / talk
+     to <owner> first.` (`<text>` is the blocker item's text; `<owner>` is the
+     blocker's `owner`, else the assigned item's, else `"unassigned"`).
+   - **Stale blocker reference** — a `blockedBy` key that is ABSENT from this (clean)
+     export. A reworded blocker mints a NEW key, so absence here is a dangling
+     reference, NOT an unblock. **Cancel** with a stale-reference repair message —
+     name the missing key and say the blocker was likely reworded; the human or
+     `/taskout`-maintenance must repair the `- Blocked-by:` anchor. Never report it
+     as "unblocked" and never proceed.
+   - **`blocked-hitl`** — the item's key has a live entry in
+     `.captain-sdlc/blocked-hitl.json` (a downgrade marker from a prior auto run).
+     **Cancel in auto** (`/flay-auto`): auto must not resume work an earlier auto run
+     punted to a human — `This task was downgraded to HITL on a prior run; resume it
+     with /flay.` **Proceed in HITL** (`/flay`): the human IS resuming, which is
+     exactly what the marker waits for.
+
+   Cancel = abort the Assigned phase before any `flay-state.json` is created; report
+   the reason and stop. The detector adds no machinery: it surfaces the blocker, the
+   human (or `/taskout`) resolves it in the markdown.
 2. **Planning.** Enter Claude Code plan mode for the implementation design. First
    read the assigned item's spec from the export. **Warm vs cold:**
    - *Warm* — the item carries `howToImplement` / `designContext` (taskout already
@@ -101,7 +150,13 @@ Unknown `schema_version` in an existing file → refuse and ask the human.
    exists, say so and let the human decide what verification means here.
    - HITL: failures → show output, human decides next step.
    - Auto: ANY verify failure → announce "downgrading to HITL" and switch modes
-     permanently for this flay. Never retry-loop.
+     permanently for this flay. Never retry-loop. On the downgrade, record it in TWO
+     places: (a) write `downgradedAt` (ISO) and `downgradedPhase` (`"verifying"`) to
+     `flay-state.json`; (b) append the task key to `.captain-sdlc/blocked-hitl.json`
+     (create the file lazily as a JSON array/object keyed by task key — match the
+     ledger shape the Blocked-detector reads). This `blocked-hitl` marker makes a
+     later `/flay-auto` on the same key cancel (it must not silently re-attempt the
+     punted work), while `/flay` (human resuming) proceeds past it.
 5. **Committing.** Stage the work, then follow the task-footers flow
    (claude-release-clickup) if installed — it will default to this key from the
    state file; otherwise compose the footer per Seam 7 directly. Before the footer
@@ -112,8 +167,11 @@ Unknown `schema_version` in an existing file → refuse and ask the human.
    - Auto: default `Needs-QA:` (unwatched work is exactly what QA exists for);
      only use `Completes:` if the human pre-authorized it when invoking.
    Use `Implements:` instead when the commit advances but does not finish the item.
-6. **Done.** Delete the state file, prepend the scratch.md outcome line, report:
-   key, phases walked, verify result, commit hash, footer verb. If the item was
+6. **Done.** Delete the state file AND clear this key's entry from
+   `.captain-sdlc/blocked-hitl.json` if present (the HITL resume completed, so the
+   downgrade marker has served its purpose — leaving it would wrongly cancel a future
+   `/flay-auto` on the same key). Prepend the scratch.md outcome line, report: key,
+   phases walked, verify result, commit hash, footer verb. If the item was
    taste-laden and vibe-shipped, also append its finalize-UI follow-up to
    `.captain-sdlc/taste-debt.md` (see **Taste gate**).
 
@@ -166,7 +224,10 @@ here, never a reason to skip the trail.
 - Keys come only from `design_taskout_export` — never derived, never guessed.
 - Warm tickets (export carries `howToImplement` / `designContext`) carry their spec
   forward at Planning; re-derive from scratch only for cold tickets.
-- Flay never picks work, never reorders the roadmap, never rewords a task.
+- Flay never picks work, never reorders the roadmap, never rewords a task. The
+  Blocked-detector is READ-ONLY too: it reads the export + `blocked-hitl.json` ledger
+  and may only cancel; it never writes the roadmap or a tracker. A surfaced blocker /
+  stale reference is repaired by the human or `/taskout`, not by flay.
 - No git hooks; everything is in-session orchestration.
 - Downstream blades read the state file advisorily; flay never calls a tracker.
 - Taste-laden items (art/UX/UI) trip the **taste gate**: auto must push for

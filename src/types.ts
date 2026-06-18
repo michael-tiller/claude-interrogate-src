@@ -122,6 +122,8 @@ export interface RCMetadata {
   status: "Stub" | "Active" | "Shipped" | string;
   anchors: RCAnchor[];
   blocks: string[];
+  // RC-level upstream blockers (other RC ids). Distinct from the per-ticket
+  // `blockedBy` on TargetedSubsection.items, which lists upstream TICKET keys.
   blockedBy: string[];
   marketingWaypoint?: string;
   shippedAt?: string;
@@ -235,12 +237,17 @@ export interface TargetedSubsection {
   //   dod             — observable pass/fail acceptance criteria (the done-bar)
   //   howToImplement  — the concrete implementation path (file:line / seam)
   //   designContext   — traps and rationale to carry into execution
+  //   blockedBy       — upstream TICKET keys this ticket can't start before
+  //                     (per-ticket; distinct from RC-level RCMetadata.blockedBy)
+  //   owner           — the single human accountable for this ticket
   items: {
     text: string;
     checked: boolean;
     dod?: string[];
     howToImplement?: string[];
     designContext?: string[];
+    blockedBy?: string[];
+    owner?: string;
   }[];
 }
 
@@ -347,6 +354,10 @@ export interface TaskoutExportItem {
   howToImplement?: string[];
   /** Design context — traps and the why behind this ticket (the `- Why:` sub-bullets); omitted when none authored. */
   designContext?: string[];
+  /** Upstream TICKET keys this ticket can't start before (the `- Blocked-by:` sub-bullets); omitted when none authored. Per-ticket — distinct from RC-level RCMetadata.blockedBy. */
+  blockedBy?: string[];
+  /** The single human accountable for this ticket (the `- Owner:` sub-bullet); omitted when unauthored. */
+  owner?: string;
 }
 
 export interface TaskoutExportSection {

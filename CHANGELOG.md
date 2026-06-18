@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.18] - 2026-06-18
+
+### Added
+
+- **Per-ticket Blocked-by / Owner** — a Targeted ticket can now carry indented `- Blocked-by:` (comma-separated upstream ticket keys it can't start before) and `- Owner:` (the single accountable human) sub-bullets, alongside the existing `- AC:` / `- How:` / `- Why:`. `parseTargeted` (`roadmap-parse`) comma-splits `Blocked-by` into a list and keeps `Owner` a single string; `design_taskout_export` surfaces them as optional `blockedBy` / `owner` ride-along fields (omitted when unauthored). Like the other sub-bullets they are held separately from the hashed item text, so existing item keys stay byte-stable — verified by a round-trip test that re-exports a fixture before/after adding the full sub-bullet set and asserts every key is unchanged. This is the export contract the ClickUp mirror's blocked-dependency sync and the flay blocked-detector consume. Per-ticket `blockedBy` is a distinct axis from the RC-level `RCMetadata.blockedBy` (other RC ids), noted in the types.
+- **flay blocked-detector (pre-flight, read-only)** — at the Assigned phase, before creating `flay-state.json`, flay now confirms the work is actually runnable. It reads the fresh `design_taskout_export` plus a new flay-owned `.captain-sdlc/blocked-hitl.json` ledger and cancels (writing nothing — flay stays read-only) when: a `blockedBy` blocker is still unchecked (`blocked-dep`, both modes); a `blockedBy` key is absent from a clean export (a reworded-blocker **stale reference**, repaired by the human / `/taskout`, never reported as "unblocked"); or the key has a live `blocked-hitl` ledger entry (cancel in `/flay-auto`, proceed in `/flay` — the human is resuming). The auto→HITL verify downgrade now appends the key to that ledger (and records `downgradedAt` / `downgradedPhase` in flay-state); the entry clears at the Done step that deletes flay-state, auto-cleans when the item flips `[x]`, and has a documented manual reset.
+
+### Changed
+
+- **`- How:` anchors prefer symbols over line numbers** — the taskout skill and the `design_taskout_start` Targeted guidance now direct authors to anchor `- How:` on symbols (`Type.Method` / the named call site / the seam) rather than bare line numbers, which drift on the next edit; a cited line number must be marked `~approx, verify` so flay re-grounds it. Curbs the warm-anchor drift seen on long-lived RCs.
+- **`renderRCStub` no longer drops per-ticket sub-bullets** — a maintenance scope rewrite previously emitted only each Targeted item's checkbox line, silently losing its `- AC:` / `- How:` / `- Why:` (and now `- Blocked-by:` / `- Owner:`). It now renders the full sub-bullet set, matching `renderTaskout`. Per-renderer round-trip tests assert each renderer's output parses and re-renders byte-identical against its own shape (the two are not mutually byte-equal — the RC stub adds Status / Last Updated / index lines).
+
 ## [0.1.17] - 2026-06-18
 
 ### Added

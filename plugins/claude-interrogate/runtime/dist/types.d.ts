@@ -198,6 +198,8 @@ export interface TargetedSubsection {
         dod?: string[];
         howToImplement?: string[];
         designContext?: string[];
+        blockedBy?: string[];
+        owner?: string;
     }[];
 }
 export interface BlockerEntry {
@@ -303,6 +305,10 @@ export interface TaskoutExportItem {
     howToImplement?: string[];
     /** Design context — traps and the why behind this ticket (the `- Why:` sub-bullets); omitted when none authored. */
     designContext?: string[];
+    /** Upstream TICKET keys this ticket can't start before (the `- Blocked-by:` sub-bullets); omitted when none authored. Per-ticket — distinct from RC-level RCMetadata.blockedBy. */
+    blockedBy?: string[];
+    /** The single human accountable for this ticket (the `- Owner:` sub-bullet); omitted when unauthored. */
+    owner?: string;
 }
 export interface TaskoutExportSection {
     heading: string;

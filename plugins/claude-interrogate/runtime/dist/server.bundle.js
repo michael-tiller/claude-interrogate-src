@@ -22474,7 +22474,7 @@ var SECTION_ALIASES = {
 };
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
-var ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why):\s*(.+)$/i;
+var ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why|Blocked-by|Owner):\s*(.+)$/i;
 var BULLET_PATTERN = /^- (.+)$/;
 var STATUS_PATTERN2 = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
@@ -22811,6 +22811,16 @@ function parseTargeted(sections) {
           if (!currentItem.designContext)
             currentItem.designContext = [];
           currentItem.designContext.push(value);
+          break;
+        case "blocked-by":
+          if (!currentItem.blockedBy)
+            currentItem.blockedBy = [];
+          for (const key of value.split(",").map((k) => k.trim()).filter(Boolean)) {
+            currentItem.blockedBy.push(key);
+          }
+          break;
+        case "owner":
+          currentItem.owner = value;
           break;
         default:
           if (!currentItem.dod)
@@ -23344,6 +23354,27 @@ function renderRCStub(rc, today, plan, existing) {
       lines.push(`### ${sub.heading}`);
       for (const item of sub.items) {
         lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+        if (item.dod && item.dod.length > 0) {
+          for (const criterion of item.dod) {
+            lines.push(`  - AC: ${criterion}`);
+          }
+        }
+        if (item.howToImplement && item.howToImplement.length > 0) {
+          for (const step of item.howToImplement) {
+            lines.push(`  - How: ${step}`);
+          }
+        }
+        if (item.designContext && item.designContext.length > 0) {
+          for (const note of item.designContext) {
+            lines.push(`  - Why: ${note}`);
+          }
+        }
+        if (item.blockedBy && item.blockedBy.length > 0) {
+          lines.push(`  - Blocked-by: ${item.blockedBy.join(", ")}`);
+        }
+        if (item.owner) {
+          lines.push(`  - Owner: ${item.owner}`);
+        }
       }
       lines.push("");
     }
@@ -23588,7 +23619,9 @@ async function exportTaskout(input) {
         key: `${epicKey}#${digest}`,
         ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {},
         ...item.howToImplement && item.howToImplement.length > 0 ? { howToImplement: item.howToImplement } : {},
-        ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {}
+        ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {},
+        ...item.blockedBy && item.blockedBy.length > 0 ? { blockedBy: item.blockedBy } : {},
+        ...item.owner ? { owner: item.owner } : {}
       };
     });
     return { heading: sub.heading, key: epicKey, items };
@@ -23907,6 +23940,12 @@ function renderTaskout(plan, today) {
             lines.push(`  - Why: ${note}`);
           }
         }
+        if (item.blockedBy && item.blockedBy.length > 0) {
+          lines.push(`  - Blocked-by: ${item.blockedBy.join(", ")}`);
+        }
+        if (item.owner) {
+          lines.push(`  - Owner: ${item.owner}`);
+        }
       }
       lines.push("");
     }
@@ -24124,7 +24163,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "design_taskout_export",
-      description: "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers. Each ticket carries its text, checked state, stable key, and any authored per-ticket spec as separate ride-along fields: `dod` (acceptance criteria), `howToImplement`, and `designContext` \u2014 omitted when not authored.",
+      description: "Export a parsed RC taskout file as tracker-neutral structured JSON with stable per-item keys, for external tracker mirrors and other downstream consumers. Each ticket carries its text, checked state, stable key, and any authored per-ticket spec as separate ride-along fields: `dod` (acceptance criteria), `howToImplement`, `designContext`, `blockedBy` (upstream ticket keys), and `owner` \u2014 omitted when not authored.",
       inputSchema: {
         type: "object",
         properties: {
@@ -25339,7 +25378,7 @@ function taskoutPrompt(rcId, docsDir, outputDir, styleTemplatePath) {
     "Behavior:",
     "- Do not dump the whole question set to the user.",
     "- Targeted is agile-correct: each `### heading` is an epic (a feature/area); each item is a ticket \u2014 one INVEST-sized goal in execution order, with 1-3 `- AC:` acceptance criteria. Sub-task breakdowns belong in Plan/ docs.",
-    "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now \u2014 `- How:` the implementation path (file:line / seam) and `- Why:` the traps and rationale \u2014 so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
+    "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now \u2014 `- How:` the implementation path and `- Why:` the traps and rationale \u2014 so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Anchor `- How:` on SYMBOLS (Type.Method / the named call site / the seam), not bare line numbers, which drift on the next edit; if you cite a line number, mark it `~approx, verify`. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
     "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
     "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");

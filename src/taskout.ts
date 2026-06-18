@@ -279,7 +279,8 @@ export async function exportTaskout(
         .update(`${normalized}\0${occurrence}`)
         .digest("hex")
         .slice(0, 12);
-      // AC / How / Why ride along as separate fields — never part of the hashed text, so keys stay stable.
+      // AC / How / Why / Blocked-by / Owner ride along as separate fields — never
+      // part of the hashed text, so keys stay stable.
       return {
         text: item.text,
         checked: item.checked,
@@ -291,6 +292,8 @@ export async function exportTaskout(
         ...(item.designContext && item.designContext.length > 0
           ? { designContext: item.designContext }
           : {}),
+        ...(item.blockedBy && item.blockedBy.length > 0 ? { blockedBy: item.blockedBy } : {}),
+        ...(item.owner ? { owner: item.owner } : {}),
       };
     });
 
@@ -657,6 +660,12 @@ function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
           for (const note of item.designContext) {
             lines.push(`  - Why: ${note}`);
           }
+        }
+        if (item.blockedBy && item.blockedBy.length > 0) {
+          lines.push(`  - Blocked-by: ${item.blockedBy.join(", ")}`);
+        }
+        if (item.owner) {
+          lines.push(`  - Owner: ${item.owner}`);
         }
       }
       lines.push("");
