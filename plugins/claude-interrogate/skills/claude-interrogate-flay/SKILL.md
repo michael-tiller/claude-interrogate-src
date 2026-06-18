@@ -59,6 +59,39 @@ Unknown `schema_version` in an existing file → refuse and ask the human.
      from scratch — that repeats work already done and loses the captured *why*.
    - *Cold* — no spec on the item. Derive the plan from scratch as normal.
 
+   **Plan review gate (before approval).** A freshly drafted plan is a draft, not
+   the plan. Run it past two independent critics, fold their blocking issues in,
+   and only then take it to the human:
+   - *Critic 1 — Claude plan-reviewer.* Launch the `claude-interrogate:plan-reviewer`
+     subagent (Agent tool, `subagent_type: claude-interrogate:plan-reviewer`) on the
+     drafted plan. It ships in this plugin, so it is always present alongside this
+     skill. It returns a structured critique ending in exactly one line:
+     `VERDICT: NEEDS REVISION` or `VERDICT: IMPLEMENTATION READY`.
+   - *Critic 2 — codex third opinion (best-effort).* If `codex` is on PATH, get an
+     out-of-model second pair of eyes — read-only so it critiques but never edits:
+     `codex exec -s read-only "<brief>\n\n<the full plan text>"`, where `<brief>` is
+     "Act as a ruthless principal-engineer plan reviewer; do not write code. Ground
+     every load-bearing claim in the actual repo (an empty grep is not proof of
+     absence). Hunt for gaps, speculative abstraction, conflicts with existing
+     conventions, unverified assumptions, scope creep, and tests that cannot fail
+     when the logic changes. List blocking issues (each with location, why it
+     matters, and a concrete fix), then end with exactly one line: VERDICT: NEEDS
+     REVISION or VERDICT: IMPLEMENTATION READY." codex missing or erroring → note
+     "codex unavailable — skipped" and proceed on Critic 1 alone. Never block the
+     gate on codex.
+
+   Address every blocking issue — revise the plan, or record why it does not apply.
+   The gate clears only when BOTH critics return `IMPLEMENTATION READY` on the *same*
+   final plan. A READY verdict covers only the exact plan text the critic saw: any
+   later edit invalidates it, so folding in codex's feedback yields a new revision
+   that Claude must re-validate (and a Claude-driven revision must go back to codex).
+   Re-run both critics on each revision until one plan survives both with no edits
+   after the last verdict. HITL: show both verdicts and their blocking lists each
+   round; loop until both read READY on the same revision, or the human waives what
+   remains. Auto: at most TWO review→revise rounds, then go to approval carrying any
+   unresolved blocking issue forward as an explicit caveat — never infinite-loop,
+   never silently drop one.
+
    Plan approval (ExitPlanMode) is a harness gate in BOTH modes. On approval →
    record `plan-approved`.
 3. **Implementing.** Execute the approved plan. HITL: confirm before starting;

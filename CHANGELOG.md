@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.17] - 2026-06-18
+
+### Added
+
+- **flay plan-review gate** — flay's Planning phase now runs an internal plan review *before* the human's plan approval. After a plan is drafted, two independent critics vet it and their blocking issues are folded back in before `ExitPlanMode`: a new in-plugin **`claude-interrogate:plan-reviewer`** subagent (a ruthless principal-engineer reviewer that hunts gaps, smells, conflicts, unverified assumptions, scope creep, and weak tests, ending in `VERDICT: NEEDS REVISION | IMPLEMENTATION READY`), plus a best-effort **codex third opinion** (`codex exec -s read-only`, skipped with a note when `codex` is absent so the gate never blocks on it). HITL loops revise→re-review until both verdicts read READY or the human waives; auto caps at two rounds and carries any unresolved blocker forward as an explicit caveat. The new agent ships in the plugin's `agents/` directory, so it always travels alongside the flay skill.
+
 ## [0.1.16] - 2026-06-17
 
 ### Added
