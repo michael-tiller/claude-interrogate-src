@@ -315,6 +315,34 @@ export interface TaskoutExportSection {
     key: string;
     items: TaskoutExportItem[];
 }
+export interface OrderViolation {
+    /** Dependent ticket key whose `Blocked-by` edge points at-or-after itself in the pushed (Targeted/ClickUp) order. */
+    item: string;
+    /** The blocker ticket key (resolved within this RC) that sits at/after the dependent. */
+    blocker: string;
+}
+export interface UnresolvedBlockedBy {
+    /** Dependent ticket key carrying the bad token. */
+    item: string;
+    /** A `Blocked-by` token that looks intra-RC (this RC's prefix, or contains no `#`) but matches no ticket key here — a typo / wrong digest / stale ref. */
+    token: string;
+}
+export interface StrayOrderingSection {
+    /** The offending prose ordering heading (e.g. "Suggested Order") — a divergent second order source the parser ignores. */
+    heading: string;
+}
+/**
+ * Ordering health of a taskout RC. The Targeted list order IS the ClickUp order, so a `Blocked-by`
+ * edge that contradicts it (or a typo'd edge) means the pushed order lies about the dependencies.
+ * Surfaced by {@link TaskoutExportResult.orderDiagnostics} on the read path (never throws) and
+ * enforced by `generateTaskout` on the write path (refuses on `blockedByViolations` /
+ * `unresolvedBlockedBy`). `strayOrderingSections` is advisory-only.
+ */
+export interface OrderDiagnostics {
+    blockedByViolations: OrderViolation[];
+    unresolvedBlockedBy: UnresolvedBlockedBy[];
+    strayOrderingSections: StrayOrderingSection[];
+}
 export interface TaskoutExportResult {
     rcId: string;
     path: string;
@@ -329,6 +357,8 @@ export interface TaskoutExportResult {
     blockersAndDeps: BlockerEntry[];
     definitionOfDone: string[];
     references: string[];
+    /** Ordering health (additive; always present). Empty lists = clean. See {@link OrderDiagnostics}. */
+    orderDiagnostics: OrderDiagnostics;
 }
 export interface ParsedTechDebtItem {
     text: string;

@@ -23531,6 +23531,15 @@ async function analyzeTaskout(input) {
 async function generateTaskout(input) {
   const plan = normalizeTaskoutPlan(input.plan);
   validateRCId(plan.rc.id);
+  const order = analyzeTaskoutOrder(keyedTargeted(plan.targeted, plan.rc.id), plan.rc.id);
+  if (order.blockedByViolations.length > 0 || order.unresolvedBlockedBy.length > 0) {
+    const parts = [
+      ...order.blockedByViolations.map((v) => `'${v.item}' is Blocked-by '${v.blocker}', which is listed at or after it \u2014 order the Targeted list so blockers come first`),
+      ...order.unresolvedBlockedBy.map((u) => `'${u.item}' is Blocked-by '${u.token}', which resolves to no ticket in ${plan.rc.id} \u2014 use the full ticket key '<RCID>#<epic-slug>#<digest>'`)
+    ];
+    throw new TaskoutError("order-violation", `Targeted order contradicts declared Blocked-by edges:
+- ${parts.join("\n- ")}`);
+  }
   const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
     milestone: plan.rc.milestone,
@@ -23580,6 +23589,71 @@ function normalizeTaskoutPlan(plan) {
   }
   return plan;
 }
+function keyedTargeted(targeted, rcId) {
+  const slugCounts = /* @__PURE__ */ new Map();
+  return targeted.map((sub) => {
+    const baseSlug = slugifyHeading(sub.heading);
+    const priorUses = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, priorUses + 1);
+    const epicKey = priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
+    const textOccurrences = /* @__PURE__ */ new Map();
+    const items = sub.items.map((item) => {
+      const normalized = normalizeItemText(item.text);
+      const occurrence = textOccurrences.get(normalized) ?? 0;
+      textOccurrences.set(normalized, occurrence + 1);
+      const digest = createHash("sha1").update(`${normalized}\0${occurrence}`).digest("hex").slice(0, 12);
+      return {
+        text: item.text,
+        checked: item.checked,
+        key: `${epicKey}#${digest}`,
+        ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {},
+        ...item.howToImplement && item.howToImplement.length > 0 ? { howToImplement: item.howToImplement } : {},
+        ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {},
+        ...item.blockedBy && item.blockedBy.length > 0 ? { blockedBy: item.blockedBy } : {},
+        ...item.owner ? { owner: item.owner } : {}
+      };
+    });
+    return { heading: sub.heading, key: epicKey, items };
+  });
+}
+function analyzeTaskoutOrder(sections, rcId, raw) {
+  const indexOf = /* @__PURE__ */ new Map();
+  let flatIndex = 0;
+  for (const sub of sections) {
+    for (const item of sub.items) {
+      if (!indexOf.has(item.key))
+        indexOf.set(item.key, flatIndex);
+      flatIndex += 1;
+    }
+  }
+  const blockedByViolations = [];
+  const unresolvedBlockedBy = [];
+  for (const sub of sections) {
+    for (const item of sub.items) {
+      if (!item.blockedBy)
+        continue;
+      const depIndex = indexOf.get(item.key);
+      for (const token of item.blockedBy) {
+        if (indexOf.has(token)) {
+          if (indexOf.get(token) >= depIndex) {
+            blockedByViolations.push({ item: item.key, blocker: token });
+          }
+        } else if (token.startsWith(`${rcId}#`) || !token.includes("#")) {
+          unresolvedBlockedBy.push({ item: item.key, token });
+        }
+      }
+    }
+  }
+  const strayOrderingSections = [];
+  if (raw) {
+    const re = /^#{1,6}\s+(suggested|execution|implementation)\s+(order|sequence)\b.*$/gim;
+    let match;
+    while ((match = re.exec(raw)) !== null) {
+      strayOrderingSections.push({ heading: match[0].replace(/^#+\s+/, "").trim() });
+    }
+  }
+  return { blockedByViolations, unresolvedBlockedBy, strayOrderingSections };
+}
 async function exportTaskout(input) {
   validateRCId(input.rcId);
   const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
@@ -23601,31 +23675,8 @@ async function exportTaskout(input) {
   if (!parsed) {
     throw new TaskoutError("rc-parse-failed", `Failed to parse ${rcAbs}.`);
   }
-  const slugCounts = /* @__PURE__ */ new Map();
-  const targeted = parsed.targeted.map((sub) => {
-    const baseSlug = slugifyHeading(sub.heading);
-    const priorUses = slugCounts.get(baseSlug) ?? 0;
-    slugCounts.set(baseSlug, priorUses + 1);
-    const epicKey = priorUses === 0 ? `${input.rcId}#${baseSlug}` : `${input.rcId}#${baseSlug}-${priorUses + 1}`;
-    const textOccurrences = /* @__PURE__ */ new Map();
-    const items = sub.items.map((item) => {
-      const normalized = normalizeItemText(item.text);
-      const occurrence = textOccurrences.get(normalized) ?? 0;
-      textOccurrences.set(normalized, occurrence + 1);
-      const digest = createHash("sha1").update(`${normalized}\0${occurrence}`).digest("hex").slice(0, 12);
-      return {
-        text: item.text,
-        checked: item.checked,
-        key: `${epicKey}#${digest}`,
-        ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {},
-        ...item.howToImplement && item.howToImplement.length > 0 ? { howToImplement: item.howToImplement } : {},
-        ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {},
-        ...item.blockedBy && item.blockedBy.length > 0 ? { blockedBy: item.blockedBy } : {},
-        ...item.owner ? { owner: item.owner } : {}
-      };
-    });
-    return { heading: sub.heading, key: epicKey, items };
-  });
+  const targeted = keyedTargeted(parsed.targeted, input.rcId);
+  const orderDiagnostics = analyzeTaskoutOrder(targeted, input.rcId, parsed.raw);
   return {
     rcId: input.rcId,
     path: rcAbs,
@@ -23639,7 +23690,8 @@ async function exportTaskout(input) {
     targeted,
     blockersAndDeps: parsed.blockersAndDeps,
     definitionOfDone: parsed.definitionOfDone,
-    references: parsed.references
+    references: parsed.references,
+    orderDiagnostics
   };
 }
 function slugifyHeading(heading) {
@@ -23853,7 +23905,7 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
   questions.push({
     id: "targeted",
     theme: "Targeted",
-    question: "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets \u2014 one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order; that order is the priority. If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
+    question: "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets \u2014 one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order, AND order the epics themselves top-to-bottom in execution order too \u2014 this Targeted list IS the order the human reads off ClickUp as the work sequence, so it must match the intended implementation order. Do NOT author a separate 'Suggested Order' / 'Execution Order' section: it diverges silently and the tooling ignores it (the list is the only order that ships). If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
     rationale: "Agile-correct: epic = a feature, ticket = one INVEST-sized goal, backlog ordered by execution with dependencies explicit. Sub-task breakdowns live in Plan/ docs."
   });
   questions.push({
@@ -23872,7 +23924,7 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
   questions.push({
     id: "blockers",
     theme: "Blockers & Dependencies",
-    question: techDebt.length || carried.length ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order." : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls).",
+    question: techDebt.length || carried.length ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order. Encode every intended ordering \u2014 including a soft 'do X before Y' with no hard code-dependency \u2014 as a `- Blocked-by:` edge on the dependent ticket so the order is machine-checked. Its value MUST be the dependency's full exported ticket key `<RCID>#<epic-slug>#<digest>`; a bare digest or epic letter is rejected at generate time." : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls). Encode every intended ordering \u2014 including a soft 'do X before Y' with no hard code-dependency \u2014 as a `- Blocked-by:` edge on the dependent ticket so the order is machine-checked. Its value MUST be the dependency's full exported ticket key `<RCID>#<epic-slug>#<digest>`; a bare digest or epic letter is rejected at generate time.",
     rationale: "Known dependencies up front make the ticket order a real execution plan, not a guess."
   });
   questions.push({
@@ -25377,9 +25429,10 @@ function taskoutPrompt(rcId, docsDir, outputDir, styleTemplatePath) {
     "",
     "Behavior:",
     "- Do not dump the whole question set to the user.",
-    "- Targeted is agile-correct: each `### heading` is an epic (a feature/area); each item is a ticket \u2014 one INVEST-sized goal in execution order, with 1-3 `- AC:` acceptance criteria. Sub-task breakdowns belong in Plan/ docs.",
+    "- Targeted is agile-correct: each `### heading` is an epic (a feature/area); each item is a ticket \u2014 one INVEST-sized goal in execution order, with 1-3 `- AC:` acceptance criteria. Sub-task breakdowns belong in Plan/ docs. Order the EPICS top-to-bottom in execution order too, not just tickets within an epic: this list IS the order the human reads off ClickUp as the work sequence, so it must match the intended implementation order. Never author a separate 'Suggested Order' / 'Execution Order' section \u2014 it diverges silently and tooling ignores it. Encode any intended ordering (even a soft 'X before Y') as a `- Blocked-by:` edge whose value is the dependency's full ticket key `<RCID>#<epic-slug>#<digest>`.",
     "- Warm tickets (deep-shape-first): when a code-grounded plan already exists for a ticket (a Plan/ doc, prior recon, a settled design), capture its spec now \u2014 `- How:` the implementation path and `- Why:` the traps and rationale \u2014 so flay and the ClickUp mirror inherit execution context instead of re-deriving it. Anchor `- How:` on SYMBOLS (Type.Method / the named call site / the seam), not bare line numbers, which drift on the next edit; if you cite a line number, mark it `~approx, verify`. Cold tickets (no prior shape) stay thin and are spec'd at flay. Never invent a path not actually traced.",
     "- If `design_taskout_generate` refuses with `mode-mismatch`, re-fetch state via `design_taskout_start` and retry with the correct mode.",
+    "- If it refuses with `order-violation`, a `- Blocked-by:` edge contradicts the Targeted list order or points at a non-existent ticket key: reorder the epics/tickets so blockers come first and/or fix the key to the full `<RCID>#<epic-slug>#<digest>` form, then re-attempt.",
     "- If it refuses with `shipped-lock-violation`, surface the changed fields, interview the user to add the override (or restate the unchanged values), and re-attempt."
   ].join("\n");
 }

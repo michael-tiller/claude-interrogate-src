@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.19] - 2026-06-18
+
+### Added
+
+- **Taskout order guard** — the Targeted list order IS the pushed (ClickUp) order, so an out-of-order or typo'd dependency now surfaces instead of shipping silently as the wrong "next task." A new pure `analyzeTaskoutOrder` classifies a Targeted list's `- Blocked-by:` edges against the list order: `blockedByViolations` (a blocker listed at/after its dependent — the order contradicts the dependency), `unresolvedBlockedBy` (a token that looks intra-RC — this RC's prefix, OR a bare digest / epic letter with no `#` — but matches no ticket key: a typo / wrong digest / stale ref; a full key with a *different* RC prefix is a legitimate upstream dep and is ignored), and `strayOrderingSections` (a `## Suggested/Execution/Implementation Order/Sequence` prose section — a divergent second order source the parser ignores). `design_taskout_export` now returns these as an additive, always-present `orderDiagnostics` field. A shared `keyedTargeted` key helper (extracted from `exportTaskout`) lets export and generate derive byte-identical keys.
+
+### Changed
+
+- **`design_taskout_generate` now refuses `order-violation`** — the write path runs the order guard **unconditionally** (so bootstrap-rc, the first-author path, is gated too) and throws when a `- Blocked-by:` edge contradicts the Targeted list order or points at a non-existent ticket key, naming each offending edge. The READ path (`design_taskout_export`) deliberately stays clean — it never throws on order diagnostics — so the flay blocked-detector and clickup-sync keep their "stale reference stays blocking, classified downstream" contract. Taskout authoring guidance (the `targeted`/`blockers` interview questions, the `taskout` skill + command) now directs authors to order EPICS (not just tickets within an epic) in execution order, never to author a separate ordering section, and to encode intended orderings as full-key `- Blocked-by:` edges (`<RCID>#<epic-slug>#<digest>`).
+
 ## [0.1.18] - 2026-06-18
 
 ### Added

@@ -83,6 +83,20 @@ export async function analyzeTaskout(input) {
 export async function generateTaskout(input) {
     const plan = normalizeTaskoutPlan(input.plan);
     validateRCId(plan.rc.id);
+    // Write-path order gate (UNCONDITIONAL — bootstrap-rc is the first-author path that most needs it).
+    // The Targeted list order IS the pushed (ClickUp) order, so refuse to write a plan whose declared
+    // `- Blocked-by:` edges contradict that order, or that point at a ticket key absent from this RC
+    // (a typo / bare digest / stale ref). Fires at authoring — the author fixes it before it lands.
+    // Cross-RC upstream deps are ignored; stray prose ordering sections are advisory-only (export
+    // surfaces them) and never block a write. Read-path (exportTaskout) stays clean for flay/sync.
+    const order = analyzeTaskoutOrder(keyedTargeted(plan.targeted, plan.rc.id), plan.rc.id);
+    if (order.blockedByViolations.length > 0 || order.unresolvedBlockedBy.length > 0) {
+        const parts = [
+            ...order.blockedByViolations.map((v) => `'${v.item}' is Blocked-by '${v.blocker}', which is listed at or after it — order the Targeted list so blockers come first`),
+            ...order.unresolvedBlockedBy.map((u) => `'${u.item}' is Blocked-by '${u.token}', which resolves to no ticket in ${plan.rc.id} — use the full ticket key '<RCID>#<epic-slug>#<digest>'`),
+        ];
+        throw new TaskoutError("order-violation", `Targeted order contradicts declared Blocked-by edges:\n- ${parts.join("\n- ")}`);
+    }
     const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
     const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
         milestone: plan.rc.milestone,
@@ -138,35 +152,19 @@ function normalizeTaskoutPlan(plan) {
     }
     return plan;
 }
-export async function exportTaskout(input) {
-    validateRCId(input.rcId);
-    const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
-    const kind = idMatch[1] === "MRC" ? "release-candidate" : "build";
-    const milestone = Number(idMatch[2]);
-    const name = idMatch[3];
-    const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
-    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-        milestone,
-        name,
-        kind,
-    });
-    const rcAbs = path.resolve(rcDirAbs, filename);
-    await assertWithinDir(rcAbs, rcDirAbs);
-    if (!(await fileExists(rcAbs))) {
-        throw new TaskoutError("rc-file-not-found", `No RC file at ${rcAbs} for ${input.rcId}. Run /taskout to create it first.`);
-    }
-    const parsed = await parseRCFile(rcAbs);
-    if (!parsed) {
-        throw new TaskoutError("rc-parse-failed", `Failed to parse ${rcAbs}.`);
-    }
+/**
+ * Compute the stable export keys (epic + per-ticket) for a Targeted section list. Extracted so the
+ * read path ({@link exportTaskout}) and the write-path order gate (`generateTaskout`) derive
+ * byte-identical keys. Keys hash item TEXT (+ encounter occurrence) only — sub-bullets ride along
+ * untouched, so reordering or adding `- Blocked-by:`/`- Owner:` leaves keys stable.
+ */
+export function keyedTargeted(targeted, rcId) {
     const slugCounts = new Map();
-    const targeted = parsed.targeted.map((sub) => {
+    return targeted.map((sub) => {
         const baseSlug = slugifyHeading(sub.heading);
         const priorUses = slugCounts.get(baseSlug) ?? 0;
         slugCounts.set(baseSlug, priorUses + 1);
-        const epicKey = priorUses === 0
-            ? `${input.rcId}#${baseSlug}`
-            : `${input.rcId}#${baseSlug}-${priorUses + 1}`;
+        const epicKey = priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
         const textOccurrences = new Map();
         const items = sub.items.map((item) => {
             const normalized = normalizeItemText(item.text);
@@ -196,6 +194,84 @@ export async function exportTaskout(input) {
         });
         return { heading: sub.heading, key: epicKey, items };
     });
+}
+/**
+ * Order health of a keyed Targeted list. The list order IS the pushed (ClickUp) order, so:
+ *  - a `Blocked-by` edge whose target resolves to a ticket at-or-after the dependent is a
+ *    `blockedByViolation` (the pushed order contradicts the dependency);
+ *  - a `Blocked-by` token that looks intra-RC (starts with `${rcId}#`, OR contains no `#` at all —
+ *    a bare digest / epic letter) but matches no ticket key is `unresolvedBlockedBy` (typo / wrong
+ *    digest / stale). A token that DOES contain `#` with a different RC prefix is a legitimate
+ *    cross-RC/upstream dep and is ignored.
+ * `raw` (when provided, i.e. at export) is scanned for stray prose ordering sections — a divergent
+ * second order source. Pure + side-effect-free so both export and generate can call it.
+ */
+export function analyzeTaskoutOrder(sections, rcId, raw) {
+    const indexOf = new Map();
+    let flatIndex = 0;
+    for (const sub of sections) {
+        for (const item of sub.items) {
+            if (!indexOf.has(item.key))
+                indexOf.set(item.key, flatIndex);
+            flatIndex += 1;
+        }
+    }
+    const blockedByViolations = [];
+    const unresolvedBlockedBy = [];
+    for (const sub of sections) {
+        for (const item of sub.items) {
+            if (!item.blockedBy)
+                continue;
+            const depIndex = indexOf.get(item.key);
+            for (const token of item.blockedBy) {
+                if (indexOf.has(token)) {
+                    if (indexOf.get(token) >= depIndex) {
+                        blockedByViolations.push({ item: item.key, blocker: token });
+                    }
+                }
+                else if (token.startsWith(`${rcId}#`) || !token.includes("#")) {
+                    unresolvedBlockedBy.push({ item: item.key, token });
+                }
+                // else: cross-RC full key (has '#', different RC) — legitimate upstream dep, ignored.
+            }
+        }
+    }
+    const strayOrderingSections = [];
+    if (raw) {
+        const re = /^#{1,6}\s+(suggested|execution|implementation)\s+(order|sequence)\b.*$/gim;
+        let match;
+        while ((match = re.exec(raw)) !== null) {
+            strayOrderingSections.push({ heading: match[0].replace(/^#+\s+/, "").trim() });
+        }
+    }
+    return { blockedByViolations, unresolvedBlockedBy, strayOrderingSections };
+}
+export async function exportTaskout(input) {
+    validateRCId(input.rcId);
+    const idMatch = input.rcId.match(/^(M|MRC)([0-9]+)_(.+)$/);
+    const kind = idMatch[1] === "MRC" ? "release-candidate" : "build";
+    const milestone = Number(idMatch[2]);
+    const name = idMatch[3];
+    const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
+    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+        milestone,
+        name,
+        kind,
+    });
+    const rcAbs = path.resolve(rcDirAbs, filename);
+    await assertWithinDir(rcAbs, rcDirAbs);
+    if (!(await fileExists(rcAbs))) {
+        throw new TaskoutError("rc-file-not-found", `No RC file at ${rcAbs} for ${input.rcId}. Run /taskout to create it first.`);
+    }
+    const parsed = await parseRCFile(rcAbs);
+    if (!parsed) {
+        throw new TaskoutError("rc-parse-failed", `Failed to parse ${rcAbs}.`);
+    }
+    const targeted = keyedTargeted(parsed.targeted, input.rcId);
+    // Read path: surface order health as DATA, never throw — flay / clickup-sync / status depend on a
+    // clean export and classify stale refs downstream. The write-path gate (generateTaskout) is what
+    // refuses. `parsed.raw` feeds the stray-ordering-section lint.
+    const orderDiagnostics = analyzeTaskoutOrder(targeted, input.rcId, parsed.raw);
     return {
         rcId: input.rcId,
         path: rcAbs,
@@ -210,6 +286,7 @@ export async function exportTaskout(input) {
         blockersAndDeps: parsed.blockersAndDeps,
         definitionOfDone: parsed.definitionOfDone,
         references: parsed.references,
+        orderDiagnostics,
     };
 }
 function slugifyHeading(heading) {
@@ -427,7 +504,7 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
     questions.push({
         id: "targeted",
         theme: "Targeted",
-        question: "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets — one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order; that order is the priority. If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
+        question: "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets — one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order, AND order the epics themselves top-to-bottom in execution order too — this Targeted list IS the order the human reads off ClickUp as the work sequence, so it must match the intended implementation order. Do NOT author a separate 'Suggested Order' / 'Execution Order' section: it diverges silently and the tooling ignores it (the list is the only order that ships). If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
         rationale: "Agile-correct: epic = a feature, ticket = one INVEST-sized goal, backlog ordered by execution with dependencies explicit. Sub-task breakdowns live in Plan/ docs.",
     });
     questions.push({
@@ -447,8 +524,8 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
         id: "blockers",
         theme: "Blockers & Dependencies",
         question: techDebt.length || carried.length
-            ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order."
-            : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls).",
+            ? "Confirm or edit the surfaced blockers (upstream RCs, scanned tech-debt items, carried-over items), then name any inter-ticket or external dependencies that constrain execution order. Encode every intended ordering — including a soft 'do X before Y' with no hard code-dependency — as a `- Blocked-by:` edge on the dependent ticket so the order is machine-checked. Its value MUST be the dependency's full exported ticket key `<RCID>#<epic-slug>#<digest>`; a bare digest or epic letter is rejected at generate time."
+            : "Name the known dependencies that constrain execution order: upstream RCs, inter-ticket blockers within this RC, and external pending decisions (unratified ADRs, vendor calls). Encode every intended ordering — including a soft 'do X before Y' with no hard code-dependency — as a `- Blocked-by:` edge on the dependent ticket so the order is machine-checked. Its value MUST be the dependency's full exported ticket key `<RCID>#<epic-slug>#<digest>`; a bare digest or epic letter is rejected at generate time.",
         rationale: "Known dependencies up front make the ticket order a real execution plan, not a guess.",
     });
     questions.push({
