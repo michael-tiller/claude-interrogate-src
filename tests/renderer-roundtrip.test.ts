@@ -40,7 +40,9 @@ const TARGETED_WITH_FULL_SPEC: TargetedSubsection[] = [
         dod: ["a colonist accepts a dispatched job", "the job completes and is logged"],
         howToImplement: ["src/dispatch.ts — reuse the JobQueue.Enqueue seam"],
         designContext: ["the queue drains lazily — enqueue before the first tick"],
-        blockedBy: ["M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa", "M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb"],
+        // Cross-RC upstream blockers (a different RC prefix): a legitimate dependency the order
+        // gate ignores, so this render round-trip fixture is not also asserting intra-RC ordering.
+        blockedBy: ["M2_CORE#dispatch#aaaaaaaaaaaa", "M2_CORE#dispatch#bbbbbbbbbbbb"],
         owner: "Alice",
       },
       { text: "Plain ticket with no spec", checked: true },
@@ -109,7 +111,7 @@ describe("renderTaskout round-trip", () => {
     expect(firstMd).toContain("  - How: src/dispatch.ts — reuse the JobQueue.Enqueue seam");
     expect(firstMd).toContain("  - Why: the queue drains lazily — enqueue before the first tick");
     expect(firstMd).toContain(
-      "  - Blocked-by: M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa, M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb",
+      "  - Blocked-by: M2_CORE#dispatch#aaaaaaaaaaaa, M2_CORE#dispatch#bbbbbbbbbbbb",
     );
     expect(firstMd).toContain("  - Owner: Alice");
 
@@ -143,8 +145,8 @@ describe("renderTaskout round-trip", () => {
     // And the structural parse is preserved — Blocked-by stayed a list, Owner a string.
     const reparsed = await parseRCFile(second.path);
     expect(reparsed!.targeted[0].items[0].blockedBy).toEqual([
-      "M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa",
-      "M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb",
+      "M2_CORE#dispatch#aaaaaaaaaaaa",
+      "M2_CORE#dispatch#bbbbbbbbbbbb",
     ]);
     expect(reparsed!.targeted[0].items[0].owner).toBe("Alice");
     expect(reparsed!.targeted[0].items[0].dod).toEqual(parsed!.targeted[0].items[0].dod);
@@ -177,7 +179,7 @@ Per-renderer round-trip.
   - AC: a colonist accepts a dispatched job
   - How: src/dispatch.ts — reuse the JobQueue.Enqueue seam
   - Why: the queue drains lazily — enqueue before the first tick
-  - Blocked-by: M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa, M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb
+  - Blocked-by: M2_CORE#dispatch#aaaaaaaaaaaa, M2_CORE#dispatch#bbbbbbbbbbbb
   - Owner: Alice
 - [x] Plain ticket with no spec
 
@@ -218,7 +220,7 @@ Per-renderer round-trip.
     expect(firstMd).toContain("  - How: src/dispatch.ts — reuse the JobQueue.Enqueue seam");
     expect(firstMd).toContain("  - Why: the queue drains lazily — enqueue before the first tick");
     expect(firstMd).toContain(
-      "  - Blocked-by: M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa, M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb",
+      "  - Blocked-by: M2_CORE#dispatch#aaaaaaaaaaaa, M2_CORE#dispatch#bbbbbbbbbbbb",
     );
     expect(firstMd).toContain("  - Owner: Alice");
 
@@ -239,8 +241,8 @@ Per-renderer round-trip.
     const parsedStub = await parseRCFile(draftPath);
     const item = parsedStub!.targeted[0].items[0];
     expect(item.blockedBy).toEqual([
-      "M3_ROUNDTRIP#dispatch#aaaaaaaaaaaa",
-      "M3_ROUNDTRIP#dispatch#bbbbbbbbbbbb",
+      "M2_CORE#dispatch#aaaaaaaaaaaa",
+      "M2_CORE#dispatch#bbbbbbbbbbbb",
     ]);
     expect(item.owner).toBe("Alice");
     expect(item.dod).toEqual(["a colonist accepts a dispatched job"]);

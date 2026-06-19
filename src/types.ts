@@ -366,6 +366,58 @@ export interface TaskoutExportSection {
   items: TaskoutExportItem[];
 }
 
+export interface OrderViolation {
+  /** Dependent ticket key whose `Blocked-by` edge points at-or-after itself in the pushed (Targeted/ClickUp) order. */
+  item: string;
+  /** The blocker ticket key (resolved within this RC) that sits at/after the dependent. */
+  blocker: string;
+}
+
+export interface UnresolvedBlockedBy {
+  /** Dependent ticket key carrying the bad token. */
+  item: string;
+  /** A `Blocked-by` token that looks intra-RC (this RC's prefix, or contains no `#`) but matches no ticket key here — a typo / wrong digest / stale ref. */
+  token: string;
+}
+
+export interface StrayOrderingSection {
+  /** The offending prose ordering heading (e.g. "Suggested Order") — a divergent second order source the parser ignores. */
+  heading: string;
+}
+
+export interface PhaseSequenceViolation {
+  /** The offending epic heading. */
+  heading: string;
+  /**
+   * `partial-adoption` — this epic is NOT `Phase N` while sibling epics are (a mix defeats "the number IS the order").
+   * `bad-start` — the first phase number is neither 0 nor 1.
+   * `out-of-order` — this phase number does not strictly exceed the preceding phase.
+   */
+  kind: "partial-adoption" | "bad-start" | "out-of-order";
+  /** Human-readable explanation naming the offending number / expectation. */
+  detail: string;
+}
+
+/**
+ * Ordering health of a taskout RC. The Targeted list order IS the ClickUp order, so a `Blocked-by`
+ * edge that contradicts it (or a typo'd edge) means the pushed order lies about the dependencies.
+ * Surfaced by {@link TaskoutExportResult.orderDiagnostics} on the read path (never throws) and
+ * enforced by `generateTaskout` on the write path (refuses on `blockedByViolations` /
+ * `unresolvedBlockedBy`). `strayOrderingSections` is advisory-only.
+ */
+export interface OrderDiagnostics {
+  blockedByViolations: OrderViolation[];
+  unresolvedBlockedBy: UnresolvedBlockedBy[];
+  strayOrderingSections: StrayOrderingSection[];
+  /**
+   * Violations of the human-readable `### Phase N` epic convention — the number IS the order.
+   * Empty unless the RC uses phase labels (descriptive-heading RCs never populate this). Once ANY
+   * epic is phase-labeled, ALL must be (else `partial-adoption`); the numbers must strictly ascend
+   * (`out-of-order`) starting at 0 or 1 (`bad-start`; Phase 0 = the de-risking pre-work idiom).
+   */
+  phaseSequenceViolations: PhaseSequenceViolation[];
+}
+
 export interface TaskoutExportResult {
   rcId: string;
   path: string;
@@ -380,6 +432,8 @@ export interface TaskoutExportResult {
   blockersAndDeps: BlockerEntry[];
   definitionOfDone: string[];
   references: string[];
+  /** Ordering health (additive; always present). Empty lists = clean. See {@link OrderDiagnostics}. */
+  orderDiagnostics: OrderDiagnostics;
 }
 
 export interface ParsedTechDebtItem {
