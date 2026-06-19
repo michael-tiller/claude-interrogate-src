@@ -160,7 +160,11 @@ export async function generateTaskout(
   // Cross-RC upstream deps are ignored; stray prose ordering sections are advisory-only (export
   // surfaces them) and never block a write. Read-path (exportTaskout) stays clean for flay/sync.
   const order = analyzeTaskoutOrder(keyedTargeted(plan.targeted, plan.rc.id), plan.rc.id);
-  if (order.blockedByViolations.length > 0 || order.unresolvedBlockedBy.length > 0) {
+  if (
+    order.blockedByViolations.length > 0 ||
+    order.unresolvedBlockedBy.length > 0 ||
+    order.phaseSequenceViolations.length > 0
+  ) {
     const parts = [
       ...order.blockedByViolations.map(
         (v) =>
@@ -170,10 +174,11 @@ export async function generateTaskout(
         (u) =>
           `'${u.item}' is Blocked-by '${u.token}', which resolves to no ticket in ${plan.rc.id} — use the full ticket key '<RCID>#<epic-slug>#<digest>'`,
       ),
+      ...order.phaseSequenceViolations.map((p) => `epic '${p.heading}' ${p.detail}`),
     ];
     throw new TaskoutError(
       "order-violation",
-      `Targeted order contradicts declared Blocked-by edges:\n- ${parts.join("\n- ")}`,
+      `Targeted order is inconsistent (the list order is the ClickUp order):\n- ${parts.join("\n- ")}`,
     );
   }
 
@@ -360,7 +365,50 @@ export function analyzeTaskoutOrder(
     }
   }
 
-  return { blockedByViolations, unresolvedBlockedBy, strayOrderingSections };
+  // Phase-sequence: the human-readable `### Phase N` convention — the number IS the order, so a
+  // human reads ClickUp 1→2→3 as the work sequence. Silent unless the RC uses phase labels. Once
+  // ANY epic is phase-labeled, ALL must be (a `Phase 1` / `Unnumbered` / `Phase 2` mix defeats the
+  // convention); numbers must strictly ascend (gaps from a deferred phase are fine) starting at 0
+  // or 1 (Phase 0 = the de-risking pre-work idiom). A space after "Phase" is required.
+  const phaseSequenceViolations: OrderDiagnostics["phaseSequenceViolations"] = [];
+  const phaseRe = /^Phase\s+(\d+)\b/i;
+  const phased = sections.map((s) => ({ heading: s.heading, n: phaseRe.exec(s.heading)?.[1] }));
+  const labeled = phased.filter((p) => p.n !== undefined);
+  if (labeled.length > 0) {
+    const unlabeled = phased.filter((p) => p.n === undefined);
+    if (unlabeled.length > 0) {
+      for (const u of unlabeled) {
+        phaseSequenceViolations.push({
+          heading: u.heading,
+          kind: "partial-adoption",
+          detail:
+            "is not labeled `Phase N` while sibling epics are — label all Targeted epics as phases, or none",
+        });
+      }
+    } else {
+      let prev = Number.NEGATIVE_INFINITY;
+      labeled.forEach((p, i) => {
+        const num = Number(p.n);
+        if (i === 0 && num !== 0 && num !== 1) {
+          phaseSequenceViolations.push({
+            heading: p.heading,
+            kind: "bad-start",
+            detail: `first phase is ${num}; phases must start at 0 or 1`,
+          });
+        }
+        if (num <= prev) {
+          phaseSequenceViolations.push({
+            heading: p.heading,
+            kind: "out-of-order",
+            detail: `phase ${num} does not exceed the preceding phase ${prev} — order epics so phase numbers strictly ascend`,
+          });
+        }
+        prev = num;
+      });
+    }
+  }
+
+  return { blockedByViolations, unresolvedBlockedBy, strayOrderingSections, phaseSequenceViolations };
 }
 
 export async function exportTaskout(
@@ -660,7 +708,7 @@ function buildTaskoutQuestions(
     id: "targeted",
     theme: "Targeted",
     question:
-      "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets — one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order, AND order the epics themselves top-to-bottom in execution order too — this Targeted list IS the order the human reads off ClickUp as the work sequence, so it must match the intended implementation order. Do NOT author a separate 'Suggested Order' / 'Execution Order' section: it diverges silently and the tooling ignores it (the list is the only order that ships). If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
+      "Group the work into epics (one `### heading` per feature/area). Under each epic, list its tickets — one goal per ticket, sized so the ticket is independently deliverable and testable (INVEST). List tickets in execution order, AND order the epics themselves top-to-bottom in execution order too — this Targeted list IS the order the human reads off ClickUp as the work sequence, so it must match the intended implementation order. Label the epics as sequential 1-indexed phases (`### Phase 1 — <name>`, `### Phase 2 — <name>`, …) so the number IS the order and ClickUp reads coherently 1→2→3; never out-of-sequence letter labels (`E0, A, C, B…`), which read as a jumble (descriptive headings are fine when an RC has no execution sequence). Do NOT author a separate 'Suggested Order' / 'Execution Order' section: it diverges silently and the tooling ignores it (the list is the only order that ships). If a ticket is blocked by another, note it (here or under Blockers). A spike that de-risks an unknown is its own ticket. Cite concept-doc sections inline.",
     rationale:
       "Agile-correct: epic = a feature, ticket = one INVEST-sized goal, backlog ordered by execution with dependencies explicit. Sub-task breakdowns live in Plan/ docs.",
   });

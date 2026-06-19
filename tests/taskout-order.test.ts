@@ -276,3 +276,113 @@ describe("generateTaskout order gate (write path — refuses)", () => {
     expect(res.path).toMatch(/M9_ORDER\.md$/);
   });
 });
+
+// --- Phase-N sequential-epic convention (the number IS the order) ---
+
+function phaseSections(...headings: string[]) {
+  const targeted: TargetedSubsection[] = headings.map((h, i) => ({
+    heading: h,
+    items: [{ text: `ticket ${i}`, checked: false }],
+  }));
+  return keyedTargeted(targeted, RC);
+}
+function phasePlan(headings: string[]): ConfirmedTaskoutPlan {
+  const targeted: TargetedSubsection[] = headings.map((h, i) => ({
+    heading: h,
+    items: [{ text: `ticket ${i}`, checked: false }],
+  }));
+  return buildPlan(targeted);
+}
+
+describe("analyzeTaskoutOrder phase-sequence", () => {
+  const phaseViol = (...h: string[]) => analyzeTaskoutOrder(phaseSections(...h), RC).phaseSequenceViolations;
+
+  it("clean: monotonic Phase 1,2,3", () => {
+    expect(phaseViol("Phase 1 — a", "Phase 2 — b", "Phase 3 — c")).toEqual([]);
+  });
+  it("clean: Phase 0 pre-work start (0,1,2)", () => {
+    expect(phaseViol("Phase 0 — a", "Phase 1 — b", "Phase 2 — c")).toEqual([]);
+  });
+  it("clean: a gap from a deferred phase (1,2,4)", () => {
+    expect(phaseViol("Phase 1 — a", "Phase 2 — b", "Phase 4 — c")).toEqual([]);
+  });
+  it("clean: Phase 1 then Phase 10 (no greedy-digit pitfall — 10 parses as 10, not 1)", () => {
+    // If "Phase 10" mis-parsed as 1, this would be 1,1 → out-of-order. Clean proves it reads as 10.
+    expect(phaseViol("Phase 1 — a", "Phase 10 — b")).toEqual([]);
+  });
+  it("clean: all-descriptive headings (convention not in use)", () => {
+    expect(phaseViol("Alpha", "Beta")).toEqual([]);
+  });
+  it("flags out-of-order (1,3,2) on the offending epic", () => {
+    const v = phaseViol("Phase 1 — a", "Phase 3 — b", "Phase 2 — c");
+    expect(v.map((x) => x.kind)).toContain("out-of-order");
+    expect(v.some((x) => x.heading === "Phase 2 — c")).toBe(true);
+  });
+  it("flags a bad start (Phase 2,3 — start ∉ {0,1})", () => {
+    expect(phaseViol("Phase 2 — a", "Phase 3 — b").map((x) => x.kind)).toContain("bad-start");
+  });
+  it("flags partial adoption (Phase 1, Descriptive, Phase 2), naming the unlabeled epic", () => {
+    expect(phaseViol("Phase 1 — a", "Middleware", "Phase 2 — c")).toEqual([
+      { heading: "Middleware", kind: "partial-adoption", detail: expect.stringContaining("Phase N") },
+    ]);
+  });
+});
+
+describe("generateTaskout phase gate + exportTaskout surfacing", () => {
+  it("throws order-violation on a non-monotonic phase sequence", async () => {
+    await expect(
+      generateTaskout({
+        plan: phasePlan(["Phase 1 — a", "Phase 3 — b", "Phase 2 — c"]),
+        outputDir: await makeTempDir(),
+        mode: "bootstrap-rc",
+        roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+      }),
+    ).rejects.toMatchObject({ code: "order-violation" });
+  });
+
+  it("writes a monotonic phase sequence", async () => {
+    const res = await generateTaskout({
+      plan: phasePlan(["Phase 1 — a", "Phase 2 — b"]),
+      outputDir: await makeTempDir(),
+      mode: "bootstrap-rc",
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    expect(res.path).toMatch(/M9_ORDER\.md$/);
+  });
+
+  it("surfaces a phase-sequence violation at export WITHOUT throwing", async () => {
+    const dir = await makeTempDir();
+    await writeRC(
+      dir,
+      "M9_ORDER.md",
+      `# M9 — ORDER
+Status: Active
+
+## Definition of Done
+- [ ] Ships.
+
+## Theme
+Phase gate.
+
+## Goals
+- Ship in order.
+
+## Targeted
+### Phase 1 — a
+- [ ] x
+### Phase 3 — b
+- [ ] y
+### Phase 2 — c
+- [ ] z
+
+## Blockers & Dependencies
+- None identified.
+
+## References
+- (none)
+`,
+    );
+    const r = await exportTaskout({ rcId: RC, outputDir: dir, roadmapConfig: DEFAULT_ROADMAP_CONFIG });
+    expect(r.orderDiagnostics.phaseSequenceViolations.map((v) => v.kind)).toContain("out-of-order");
+  });
+});

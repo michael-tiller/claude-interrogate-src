@@ -385,6 +385,19 @@ export interface StrayOrderingSection {
   heading: string;
 }
 
+export interface PhaseSequenceViolation {
+  /** The offending epic heading. */
+  heading: string;
+  /**
+   * `partial-adoption` — this epic is NOT `Phase N` while sibling epics are (a mix defeats "the number IS the order").
+   * `bad-start` — the first phase number is neither 0 nor 1.
+   * `out-of-order` — this phase number does not strictly exceed the preceding phase.
+   */
+  kind: "partial-adoption" | "bad-start" | "out-of-order";
+  /** Human-readable explanation naming the offending number / expectation. */
+  detail: string;
+}
+
 /**
  * Ordering health of a taskout RC. The Targeted list order IS the ClickUp order, so a `Blocked-by`
  * edge that contradicts it (or a typo'd edge) means the pushed order lies about the dependencies.
@@ -396,6 +409,13 @@ export interface OrderDiagnostics {
   blockedByViolations: OrderViolation[];
   unresolvedBlockedBy: UnresolvedBlockedBy[];
   strayOrderingSections: StrayOrderingSection[];
+  /**
+   * Violations of the human-readable `### Phase N` epic convention — the number IS the order.
+   * Empty unless the RC uses phase labels (descriptive-heading RCs never populate this). Once ANY
+   * epic is phase-labeled, ALL must be (else `partial-adoption`); the numbers must strictly ascend
+   * (`out-of-order`) starting at 0 or 1 (`bad-start`; Phase 0 = the de-risking pre-work idiom).
+   */
+  phaseSequenceViolations: PhaseSequenceViolation[];
 }
 
 export interface TaskoutExportResult {

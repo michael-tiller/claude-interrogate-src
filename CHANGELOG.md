@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.20] - 2026-06-18
+
+### Added
+
+- **Sequential `Phase N` epic convention (deterministic)** — a roadmap's `## Targeted` epics should be labeled as 1-indexed phases (`### Phase 1 — …`, `### Phase 2 — …`, …) in execution order, so the number IS the order and ClickUp reads coherently 1→2→3 instead of an out-of-sequence letter jumble (`E0, A, C, B…`). `analyzeTaskoutOrder` now computes `phaseSequenceViolations` (folded into `orderDiagnostics`): once ANY epic is phase-labeled, ALL must be (`partial-adoption` — a `Phase 1` / `Unnumbered` / `Phase 2` mix defeats "the number is the order"); the numbers must strictly ascend (`out-of-order`; gaps from a deferred phase are allowed) starting at 0 or 1 (`bad-start`; Phase 0 = the de-risking pre-work idiom, e.g. a spike). Silent for descriptive-heading RCs — the convention is opt-in via the `### Phase N` label. Surfaced (never thrown) at `design_taskout_export`; `design_taskout_generate` hard-refuses with `order-violation` on a violation. Authoring guidance (the `targeted` interview question + `taskout` skill + command + `design_taskout_start` prose) now directs authors to phase-label epics in execution order.
+
 ## [0.1.19] - 2026-06-18
 
 ### Added
