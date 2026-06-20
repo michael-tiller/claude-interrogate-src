@@ -20,10 +20,12 @@ const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 // Per-ticket sub-bullets: an indented `- <label>:` line under a Targeted checkbox
 // item. Each label routes to a SEPARATE field (never folded into the hashed item
 // text) so item keys stay stable:
-//   AC  — observable acceptance criteria (legacy `DOD` still parses post-rename)
-//   How — the implementation path (file:line / seam)
-//   Why — design context: traps and rationale
-const ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why):\s*(.+)$/i;
+//   AC         — observable acceptance criteria (legacy `DOD` still parses post-rename)
+//   How        — the implementation path (file:line / seam)
+//   Why        — design context: traps and rationale
+//   Blocked-by — comma-separated upstream ticket keys this ticket can't start before
+//   Owner      — the single human accountable for this ticket
+const ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why|Blocked-by|Owner):\s*(.+)$/i;
 const BULLET_PATTERN = /^- (.+)$/;
 // Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
 const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
@@ -380,6 +382,19 @@ function parseTargeted(sections) {
                     if (!currentItem.designContext)
                         currentItem.designContext = [];
                     currentItem.designContext.push(value);
+                    break;
+                case "blocked-by":
+                    // Comma-split into a list of upstream ticket keys. Repeated `- Blocked-by:`
+                    // lines accumulate; per-item — distinct from RC-level RCMetadata.blockedBy.
+                    if (!currentItem.blockedBy)
+                        currentItem.blockedBy = [];
+                    for (const key of value.split(",").map((k) => k.trim()).filter(Boolean)) {
+                        currentItem.blockedBy.push(key);
+                    }
+                    break;
+                case "owner":
+                    // A single accountable human; last `- Owner:` line wins.
+                    currentItem.owner = value;
                     break;
                 default: // ac | dod
                     if (!currentItem.dod)

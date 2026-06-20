@@ -361,3 +361,120 @@ Warm-ticket spec round-trip.
     expect(stripped.targeted[0].items[0].key).toBe(keyWithSpec);
   });
 });
+
+describe("exportTaskout per-item Blocked-by / Owner", () => {
+  const RC_WITH_BLOCKED = `# M3 — BLOCKTEST
+Status: Active
+
+## Definition of Done
+- [ ] Ships.
+
+## Theme
+Per-ticket blocked-by + owner export.
+
+## Goals
+- Capture blockers.
+
+## Targeted
+### Dispatch
+- [ ] Wire the dispatcher
+  - Blocked-by: M3_BLOCKTEST#dispatch#aaaaaaaaaaaa, M3_BLOCKTEST#dispatch#bbbbbbbbbbbb
+  - Owner: Alice
+- [ ] Plain item with no blockers
+
+## Blockers & Dependencies
+- None identified.
+
+## References
+- (none)
+`;
+
+  it("carries blockedBy/owner as separate fields, omits them when none, and keeps keys stable", async () => {
+    const dir = await makeTempDir();
+    await writeRC(dir, "M3_BLOCKTEST.md", RC_WITH_BLOCKED);
+
+    const result = await exportTaskout({
+      rcId: "M3_BLOCKTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    const items = result.targeted[0].items;
+    expect(items[0].blockedBy).toEqual([
+      "M3_BLOCKTEST#dispatch#aaaaaaaaaaaa",
+      "M3_BLOCKTEST#dispatch#bbbbbbbbbbbb",
+    ]);
+    expect(items[0].owner).toBe("Alice");
+    // Unauthored → fields absent entirely (not empty array / empty string).
+    expect(items[1].blockedBy).toBeUndefined();
+    expect(items[1].owner).toBeUndefined();
+
+    // Blocked-by / Owner are SEPARATE fields, never hashed into the key: stripping
+    // them must leave the item key byte-identical, or the tracker mirror orphans.
+    const keyWithBlocked = items[0].key;
+    await writeRC(
+      dir,
+      "M3_BLOCKTEST.md",
+      RC_WITH_BLOCKED.replace(
+        "  - Blocked-by: M3_BLOCKTEST#dispatch#aaaaaaaaaaaa, M3_BLOCKTEST#dispatch#bbbbbbbbbbbb\n",
+        "",
+      ).replace("  - Owner: Alice\n", ""),
+    );
+    const stripped = await exportTaskout({
+      rcId: "M3_BLOCKTEST",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+    expect(stripped.targeted[0].items[0].blockedBy).toBeUndefined();
+    expect(stripped.targeted[0].items[0].owner).toBeUndefined();
+    expect(stripped.targeted[0].items[0].key).toBe(keyWithBlocked);
+  });
+});
+
+describe("exportTaskout hash-stability under sub-bullet additions", () => {
+  // The invariant: sub-bullets are NEVER part of item.text, so adding ANY of them
+  // (AC/How/Why/Blocked-by/Owner) to an existing RC must leave every key
+  // byte-identical — the ClickUp mirror keys tasks by these and would orphan them
+  // if a key moved.
+  it("re-exports SAMPLE_RC before/after sub-bullets with byte-identical keys", async () => {
+    const dir = await makeTempDir();
+
+    await writeRC(dir, "M8_QUESTS.md", SAMPLE_RC);
+    const before = await exportTaskout({
+      rcId: "M8_QUESTS",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    // Add a full sub-bullet block (including the new Blocked-by/Owner) under the
+    // first Targeted item, leaving its checkbox text untouched.
+    const withSubBullets = SAMPLE_RC.replace(
+      "- [ ] Salience threshold drives generation\n",
+      "- [ ] Salience threshold drives generation\n" +
+        "  - AC: generation fires above the threshold\n" +
+        "  - How: src/quests/salience.ts — see the SalienceGate.Evaluate seam\n" +
+        "  - Why: the gate is evaluated lazily; prime it before the first tick\n" +
+        "  - Blocked-by: M8_QUESTS#dispatch#cccccccccccc\n" +
+        "  - Owner: Bob\n",
+    );
+    await writeRC(dir, "M8_QUESTS.md", withSubBullets);
+    const after = await exportTaskout({
+      rcId: "M8_QUESTS",
+      outputDir: dir,
+      roadmapConfig: DEFAULT_ROADMAP_CONFIG,
+    });
+
+    // Every section key and every item key is byte-identical before vs after.
+    expect(after.targeted.map((t) => t.key)).toEqual(before.targeted.map((t) => t.key));
+    expect(after.targeted.map((t) => t.items.map((i) => i.key))).toEqual(
+      before.targeted.map((t) => t.items.map((i) => i.key)),
+    );
+
+    // The sub-bullets DID attach (proving the test exercised a real change), but to
+    // separate fields — not the key.
+    const firstItem = after.targeted[0].items[0];
+    expect(firstItem.blockedBy).toEqual(["M8_QUESTS#dispatch#cccccccccccc"]);
+    expect(firstItem.owner).toBe("Bob");
+    expect(firstItem.key).toBe(before.targeted[0].items[0].key);
+  });
+});

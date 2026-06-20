@@ -124,6 +124,75 @@ describe("parseRCFile", () => {
   });
 });
 
+describe("parseRCFile per-item Blocked-by / Owner", () => {
+  // Blocked-by + Owner are Targeted-only sub-bullets: they only parse under a
+  // Targeted checkbox item (the only caller of ITEM_SUBSPEC_PATTERN). DoD-list and
+  // tech-debt parsing never read them.
+  const RC_WITH_BLOCKED = `# M3 — BLOCKTEST
+Status: Active
+
+## Definition of Done
+- [ ] Ships.
+
+## Theme
+Per-ticket blocked-by + owner round-trip.
+
+## Goals
+- Capture blockers.
+
+## Targeted
+### Dispatch
+- [ ] Wire the dispatcher
+  - AC: a colonist accepts a dispatched job
+  - Blocked-by: M3_BLOCKTEST#dispatch#aaaaaaaaaaaa, M3_BLOCKTEST#dispatch#bbbbbbbbbbbb
+  - Owner: Alice
+- [ ] Plain item with no blockers
+
+## Blockers & Dependencies
+- None identified.
+
+## References
+- (none)
+`;
+
+  it("comma-splits Blocked-by into a list and keeps Owner a single string, Targeted-only", async () => {
+    const dir = await makeTempDir();
+    await mkdir(path.join(dir, "Roadmap"));
+    const rcPath = path.join(dir, "Roadmap", "M3_BLOCKTEST.md");
+    await writeFile(rcPath, RC_WITH_BLOCKED, "utf8");
+
+    const parsed = await parseRCFile(rcPath);
+    expect(parsed).not.toBeNull();
+    const items = parsed!.targeted[0].items;
+
+    // Blocked-by comma-splits into a list, in author order.
+    expect(items[0].blockedBy).toEqual([
+      "M3_BLOCKTEST#dispatch#aaaaaaaaaaaa",
+      "M3_BLOCKTEST#dispatch#bbbbbbbbbbbb",
+    ]);
+    // Owner is a single string, not a list.
+    expect(items[0].owner).toBe("Alice");
+
+    // No blockers authored → both fields absent (not empty).
+    expect(items[1].blockedBy).toBeUndefined();
+    expect(items[1].owner).toBeUndefined();
+
+    // The DoD list parser (definitionOfDone) never reads these sub-bullets.
+    expect(parsed!.definitionOfDone).toEqual(["Ships."]);
+  });
+
+  it("does not fold Blocked-by / Owner into the hashed item text", async () => {
+    const dir = await makeTempDir();
+    await mkdir(path.join(dir, "Roadmap"));
+    const rcPath = path.join(dir, "Roadmap", "M3_BLOCKTEST.md");
+    await writeFile(rcPath, RC_WITH_BLOCKED, "utf8");
+
+    const parsed = await parseRCFile(rcPath);
+    // Item text stays the bare checkbox line — sub-bullets live in their own fields.
+    expect(parsed!.targeted[0].items[0].text).toBe("Wire the dispatcher");
+  });
+});
+
 describe("parseTechDebt", () => {
   it("extracts items with blocks tags and preserves source line numbers", async () => {
     const dir = await makeTempDir();
