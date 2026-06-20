@@ -29,6 +29,7 @@ Claude Code commands (namespaced):
 - `/claude-interrogate:taskout <rc-id> [docs-dir]`
 - `/claude-interrogate:flay <task-key> [output-dir]`
 - `/claude-interrogate:flay-auto <task-key> [output-dir]`
+- `/claude-interrogate:qa <task-key> [output-dir] [--elevate]`
 - `/claude-interrogate:scratch [topic]`
 
 Codex note: Codex does not register new top-level `/...` slash commands from this plugin. Instead, use the installed skills:
@@ -42,6 +43,7 @@ Codex note: Codex does not register new top-level `/...` slash commands from thi
   - `claude-interrogate-taskout`
   - `claude-interrogate-scratch`
   - `claude-interrogate-hunt`
+  - `claude-interrogate-qa`
 - Or type `$` and mention the skill by name.
 
 If you want to confirm the MCP server is attached in the current Codex session, run `/mcp`.

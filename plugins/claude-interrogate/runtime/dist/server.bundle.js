@@ -22475,6 +22475,7 @@ var SECTION_ALIASES = {
 var HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*$/;
 var CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 var ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why|Blocked-by|Owner):\s*(.+)$/i;
+var KEY_COMMENT_PATTERN = /\s*<!--\s*key:\s*([^>]+?)\s*-->\s*$/i;
 var BULLET_PATTERN = /^- (.+)$/;
 var STATUS_PATTERN2 = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
 var LAST_UPDATED_PATTERN = /^\*{0,2}Last Updated:?\*{0,2}:?\s+(\S.+)$/m;
@@ -22794,7 +22795,10 @@ function parseTargeted(sections) {
     const checkbox = line.match(CHECKBOX_PATTERN);
     if (checkbox && current) {
       const checked = checkbox[1].toLowerCase() === "x";
-      currentItem = { text: checkbox[2].trim(), checked };
+      const keyMatch = checkbox[2].match(KEY_COMMENT_PATTERN);
+      const key = keyMatch ? keyMatch[1].trim() : void 0;
+      const text = checkbox[2].replace(KEY_COMMENT_PATTERN, "").trim();
+      currentItem = key ? { text, checked, key } : { text, checked };
       current.items.push(currentItem);
       continue;
     }
@@ -23353,7 +23357,8 @@ function renderRCStub(rc, today, plan, existing) {
     for (const sub of existing.targeted) {
       lines.push(`### ${sub.heading}`);
       for (const item of sub.items) {
-        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+        const keyComment = item.key ? `  <!-- key: ${item.key} -->` : "";
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}${keyComment}`);
         if (item.dod && item.dod.length > 0) {
           for (const criterion of item.dod) {
             lines.push(`  - AC: ${criterion}`);
@@ -23531,16 +23536,6 @@ async function analyzeTaskout(input) {
 async function generateTaskout(input) {
   const plan = normalizeTaskoutPlan(input.plan);
   validateRCId(plan.rc.id);
-  const order = analyzeTaskoutOrder(keyedTargeted(plan.targeted, plan.rc.id), plan.rc.id);
-  if (order.blockedByViolations.length > 0 || order.unresolvedBlockedBy.length > 0 || order.phaseSequenceViolations.length > 0) {
-    const parts = [
-      ...order.blockedByViolations.map((v) => `'${v.item}' is Blocked-by '${v.blocker}', which is listed at or after it \u2014 order the Targeted list so blockers come first`),
-      ...order.unresolvedBlockedBy.map((u) => `'${u.item}' is Blocked-by '${u.token}', which resolves to no ticket in ${plan.rc.id} \u2014 use the full ticket key '<RCID>#<epic-slug>#<digest>'`),
-      ...order.phaseSequenceViolations.map((p) => `epic '${p.heading}' ${p.detail}`)
-    ];
-    throw new TaskoutError("order-violation", `Targeted order is inconsistent (the list order is the ClickUp order):
-- ${parts.join("\n- ")}`);
-  }
   const rcDirAbs = path13.resolve(input.outputDir, input.roadmapConfig.rcDir);
   const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
     milestone: plan.rc.milestone,
@@ -23555,8 +23550,20 @@ async function generateTaskout(input) {
   if (input.mode === "bootstrap-rc" && rcFileExists) {
     throw new TaskoutError("mode-mismatch", `Caller said mode='bootstrap-rc' but ${rcAbs} already exists. Use mode='maintenance' instead.`);
   }
-  if (input.mode === "maintenance") {
-    await enforceShippedTaskoutLock(rcAbs, plan);
+  const existing = input.mode === "maintenance" ? await parseRCFile(rcAbs) : null;
+  if (existing) {
+    carryForwardKeys(existing.targeted, plan.targeted);
+    await enforceShippedTaskoutLock(existing, plan);
+  }
+  const order = analyzeTaskoutOrder(keyedTargeted(plan.targeted, plan.rc.id), plan.rc.id);
+  if (order.blockedByViolations.length > 0 || order.unresolvedBlockedBy.length > 0 || order.phaseSequenceViolations.length > 0) {
+    const parts = [
+      ...order.blockedByViolations.map((v) => `'${v.item}' is Blocked-by '${v.blocker}', which is listed at or after it \u2014 order the Targeted list so blockers come first`),
+      ...order.unresolvedBlockedBy.map((u) => `'${u.item}' is Blocked-by '${u.token}', which resolves to no ticket in ${plan.rc.id} \u2014 use the full ticket key '<RCID>#<epic-slug>#<digest>'`),
+      ...order.phaseSequenceViolations.map((p) => `epic '${p.heading}' ${p.detail}`)
+    ];
+    throw new TaskoutError("order-violation", `Targeted order is inconsistent (the list order is the ClickUp order):
+- ${parts.join("\n- ")}`);
   }
   const today = formatIsoDate3((input.clock ?? (() => /* @__PURE__ */ new Date()))());
   const target = input.mode === "maintenance" ? withDraftSuffix2(rcAbs) : rcAbs;
@@ -23593,20 +23600,27 @@ function normalizeTaskoutPlan(plan) {
 function keyedTargeted(targeted, rcId) {
   const slugCounts = /* @__PURE__ */ new Map();
   return targeted.map((sub) => {
-    const baseSlug = slugifyHeading(sub.heading);
-    const priorUses = slugCounts.get(baseSlug) ?? 0;
-    slugCounts.set(baseSlug, priorUses + 1);
-    const epicKey = priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
+    const established = sub.items.find((it) => it.key && it.key.includes("#"))?.key;
+    let epicKey;
+    if (established) {
+      epicKey = established.slice(0, established.lastIndexOf("#"));
+    } else {
+      const baseSlug = slugifyHeading(sub.heading);
+      const priorUses = slugCounts.get(baseSlug) ?? 0;
+      slugCounts.set(baseSlug, priorUses + 1);
+      epicKey = priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
+    }
     const textOccurrences = /* @__PURE__ */ new Map();
     const items = sub.items.map((item) => {
       const normalized = normalizeItemText(item.text);
       const occurrence = textOccurrences.get(normalized) ?? 0;
       textOccurrences.set(normalized, occurrence + 1);
       const digest = createHash("sha1").update(`${normalized}\0${occurrence}`).digest("hex").slice(0, 12);
+      const key = item.key ?? `${epicKey}#${digest}`;
       return {
         text: item.text,
         checked: item.checked,
-        key: `${epicKey}#${digest}`,
+        key,
         ...item.dod && item.dod.length > 0 ? { dod: item.dod } : {},
         ...item.howToImplement && item.howToImplement.length > 0 ? { howToImplement: item.howToImplement } : {},
         ...item.designContext && item.designContext.length > 0 ? { designContext: item.designContext } : {},
@@ -23738,10 +23752,51 @@ function slugifyHeading(heading) {
 function normalizeItemText(text) {
   return text.normalize("NFKC").trim().replace(/\s+/g, " ");
 }
-async function enforceShippedTaskoutLock(rcAbs, plan) {
-  const existing = await parseRCFile(rcAbs);
-  if (!existing)
-    return;
+function carryForwardKeys(existing, plan) {
+  const byText = /* @__PURE__ */ new Map();
+  for (const sub of existing) {
+    for (const it of sub.items) {
+      if (!it.key)
+        continue;
+      const norm = normalizeItemText(it.text);
+      const queue = byText.get(norm) ?? [];
+      queue.push(it.key);
+      byText.set(norm, queue);
+    }
+  }
+  const consumed = /* @__PURE__ */ new Set();
+  for (const sub of plan) {
+    for (const it of sub.items) {
+      if (it.key) {
+        consumed.add(it.key);
+        continue;
+      }
+      const queue = byText.get(normalizeItemText(it.text));
+      if (queue && queue.length > 0) {
+        const key = queue.shift();
+        it.key = key;
+        consumed.add(key);
+      }
+    }
+  }
+  const planByHeading = /* @__PURE__ */ new Map();
+  for (const sub of plan) {
+    if (!planByHeading.has(sub.heading))
+      planByHeading.set(sub.heading, sub);
+  }
+  for (const exSub of existing) {
+    const planSub = planByHeading.get(exSub.heading);
+    if (!planSub)
+      continue;
+    const priorLeft = exSub.items.filter((it) => it.key && !consumed.has(it.key));
+    const planLeft = planSub.items.filter((it) => !it.key);
+    if (priorLeft.length === 1 && planLeft.length === 1) {
+      planLeft[0].key = priorLeft[0].key;
+      consumed.add(priorLeft[0].key);
+    }
+  }
+}
+async function enforceShippedTaskoutLock(existing, plan) {
   if (existing.status.toLowerCase() !== "shipped")
     return;
   const changed = [];
@@ -24010,10 +24065,10 @@ function renderTaskout(plan, today) {
     lines.push("(none provided)");
     lines.push("");
   } else {
-    for (const sub of plan.targeted) {
+    for (const sub of keyedTargeted(plan.targeted, plan.rc.id)) {
       lines.push(`### ${sub.heading}`);
       for (const item of sub.items) {
-        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}  <!-- key: ${item.key} -->`);
         if (item.dod && item.dod.length > 0) {
           for (const criterion of item.dod) {
             lines.push(`  - AC: ${criterion}`);

@@ -138,6 +138,7 @@ Current command surface:
 - \`/claude-interrogate:taskout <rc-id> [docs-dir]\`
 - \`/claude-interrogate:flay <task-key> [output-dir]\`
 - \`/claude-interrogate:flay-auto <task-key> [output-dir]\`
+- \`/claude-interrogate:qa <task-key> [output-dir] [--elevate]\`
 - \`/claude-interrogate:scratch [topic]\`
 
 Install from the plugin marketplace inside Claude Code:
@@ -169,6 +170,7 @@ Codex workflows are exposed as skills (not new top-level slash commands). Run \`
 - \`claude-interrogate-roadmap\`
 - \`claude-interrogate-taskout\`
 - \`claude-interrogate-flay\`
+- \`claude-interrogate-qa\`
 - \`claude-interrogate-scratch\`
 - \`claude-interrogate-hunt\`
 

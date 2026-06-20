@@ -85,11 +85,12 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
      to <owner> first.` (`<text>` is the blocker item's text; `<owner>` is the
      blocker's `owner`, else the assigned item's, else `"unassigned"`).
    - **Stale blocker reference** — a `blockedBy` key that is ABSENT from this (clean)
-     export. A reworded blocker mints a NEW key, so absence here is a dangling
-     reference, NOT an unblock. **Cancel** with a stale-reference repair message —
-     name the missing key and say the blocker was likely reworded; the human or
-     `/taskout`-maintenance must repair the `- Blocked-by:` anchor. Never report it
-     as "unblocked" and never proceed.
+     export. Ticket keys are now immutable (they persist inline and survive reweords),
+     so absence means the blocker ticket was DELETED or the anchor is a typo/wrong key —
+     a dangling reference, NOT an unblock. **Cancel** with a stale-reference repair
+     message — name the missing key and say the blocker was likely removed or mistyped;
+     the human or `/taskout`-maintenance must repair the `- Blocked-by:` anchor. Never
+     report it as "unblocked" and never proceed.
    - **`blocked-hitl`** — the item's key has a live entry in
      `.captain-sdlc/blocked-hitl.json` (a downgrade marker from a prior auto run).
      **Cancel in auto** (`/flay-auto`): auto must not resume work an earlier auto run
@@ -116,30 +117,59 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
      drafted plan. It ships in this plugin, so it is always present alongside this
      skill. It returns a structured critique ending in exactly one line:
      `VERDICT: NEEDS REVISION` or `VERDICT: IMPLEMENTATION READY`.
-   - *Critic 2 — codex third opinion (best-effort).* If `codex` is on PATH, get an
-     out-of-model second pair of eyes — read-only so it critiques but never edits:
-     `codex exec -s read-only "<brief>\n\n<the full plan text>"`, where `<brief>` is
+   - *Critic 2 — codex out-of-model gate (best-effort).* Runs only after Critic 1 is
+     satisfied. If `codex` is on PATH, get an out-of-model second pair of eyes —
+     read-only so it critiques but never edits.
+     Append its output to the same artifact instead of dumping stdout into context:
+     `codex exec -s read-only "<brief>\n\n<the full plan text>" >> .captain-sdlc/plan-review.txt 2>&1`,
+     then read codex's verdict back from that file. `<brief>` is
      "Act as a ruthless principal-engineer plan reviewer; do not write code. Ground
      every load-bearing claim in the actual repo (an empty grep is not proof of
-     absence). Hunt for gaps, speculative abstraction, conflicts with existing
-     conventions, unverified assumptions, scope creep, and tests that cannot fail
-     when the logic changes. List blocking issues (each with location, why it
-     matters, and a concrete fix), then end with exactly one line: VERDICT: NEEDS
-     REVISION or VERDICT: IMPLEMENTATION READY." codex missing or erroring → note
+     absence) — you may read `.captain-sdlc/plan-review-grounding.txt` for facts the
+     first critic already verified, to skip re-grepping them. Hunt for gaps,
+     speculative abstraction, conflicts with existing conventions, unverified
+     assumptions, scope creep, and tests that cannot fail when the logic changes.
+     List blocking issues (each with location, why it matters, and a concrete fix),
+     then end with exactly one line: VERDICT: NEEDS REVISION or VERDICT:
+     IMPLEMENTATION READY." codex missing or erroring → note
      "codex unavailable — skipped" and proceed on Critic 1 alone. Never block the
      gate on codex.
 
    Address every blocking issue — revise the plan, or record why it does not apply.
-   The gate clears only when BOTH critics return `IMPLEMENTATION READY` on the *same*
-   final plan. A READY verdict covers only the exact plan text the critic saw: any
-   later edit invalidates it, so folding in codex's feedback yields a new revision
-   that Claude must re-validate (and a Claude-driven revision must go back to codex).
-   Re-run both critics on each revision until one plan survives both with no edits
-   after the last verdict. HITL: show both verdicts and their blocking lists each
-   round; loop until both read READY on the same revision, or the human waives what
-   remains. Auto: at most TWO review→revise rounds, then go to approval carrying any
-   unresolved blocking issue forward as an explicit caveat — never infinite-loop,
-   never silently drop one.
+   **Run one critic at a time** so you never spend a critic's call on a plan the other
+   would still reject. Alternate:
+   1. **Claude until READY.** Run Critic 1 on the current plan, revise against its
+      blocking issues, re-run Critic 1. Loop until it returns `IMPLEMENTATION READY`
+      on a revision you did not edit afterward.
+   2. **Then codex on that exact revision.** Run Critic 2 with no edits in between. If
+      it returns READY too, both critics have approved the *same* unedited plan →
+      **gate clears**.
+   3. **Any codex fix sends it back to Claude.** A READY verdict covers only the exact
+      plan text the critic saw, so folding codex's blocking issues in yields a new
+      revision that invalidates Claude's READY — return to step 1 and re-validate it
+      with Claude before codex sees it again.
+
+   There is no round limit: each revision is a real improvement, so recurse until one
+   revision survives both critics back-to-back with no edits after either verdict.
+   Never silently drop a blocking issue. HITL: show each verdict and its blocking list
+   as it lands; the human may waive what remains to clear early. Auto: keep cycling —
+   but if the two critics deadlock (each rejecting the change the other required), the
+   tool can't resolve that conflict alone → announce it and downgrade to HITL rather
+   than oscillate forever. If codex is unavailable, step 1's Claude READY clears the
+   gate on its own.
+
+   Read each critic's verdict from the artifact, not its raw return. Whichever critic
+   ran writes its review to `.captain-sdlc/plan-review.txt` — Critic 1 overwrites it
+   each round; codex appends its section when its turn comes. Read THAT file for the
+   current critic's verdict and blocking list; it is the single read target, rewritten
+   fresh as the alternation proceeds, so re-reviews don't re-scan verbose prose.
+   Critic 1 also keeps a longer-lived grounding cache at
+   `.captain-sdlc/plan-review-grounding.txt` where it records verified repo facts and
+   reads them back across rounds (codex may consult it), so they don't re-grep the same
+   facts. When this review phase ends — the gate clears, the human waives, or auto
+   downgrades on a deadlock — DELETE both files, so the next task's review phase starts
+   fresh. (Churning local state like the rest of `.captain-sdlc/`; gitignore them
+   alongside `flay-state.json`.)
 
    Plan approval (ExitPlanMode) is a harness gate in BOTH modes. On approval →
    record `plan-approved`.

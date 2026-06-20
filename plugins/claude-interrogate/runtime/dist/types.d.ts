@@ -195,6 +195,7 @@ export interface TargetedSubsection {
     items: {
         text: string;
         checked: boolean;
+        key?: string;
         dod?: string[];
         howToImplement?: string[];
         designContext?: string[];

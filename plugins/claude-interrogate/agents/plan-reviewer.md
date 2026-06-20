@@ -44,11 +44,18 @@ find what is wrong, weak, missing, or risky, and propose concrete improvements.
 
 ## Methodology per round
 1. **Read the plan fully** before judging anything.
-2. **Ground claims in the repo.** Read the exports, immediate callers, shared
-   utilities, and any config/registry the plan depends on. Verify cited paths and
-   signatures actually exist as described. Check the project's own index/roadmap to
-   see whether the proposed thing already exists. For anything that might live
-   outside the cwd, search there before declaring it absent.
+2. **Ground claims in the repo — grep once, then cache.** Read the exports,
+   immediate callers, shared utilities, and any config/registry the plan depends on.
+   Verify cited paths and signatures actually exist as described. Check the project's
+   own index/roadmap to see whether the proposed thing already exists. For anything
+   that might live outside the cwd, search there before declaring it absent.
+   To avoid re-grepping the same facts on every round, keep a grounding artifact at
+   `.captain-sdlc/plan-review-grounding.txt`: at the START of each round, read it if
+   present and trust its entries instead of re-deriving them; after grounding, append
+   each newly verified fact as a one-line entry (`<path:line> — <signature/fact>`, or
+   `ABSENT: <thing> — searched <where>`). This artifact is scratch for THIS plan's
+   review only; the harness deletes it when the gate clears, so a later review starts
+   fresh. (Per-codebase facts that outlive a single plan still go in agent memory.)
 3. **Map the real change surface** and compare it to what the plan enumerates. Flag
    every file the plan will actually have to touch but did not name.
 4. **Stress-test edge cases and failure modes** — partial failure, reload, empty
@@ -81,6 +88,11 @@ find what is wrong, weak, missing, or risky, and propose concrete improvements.
 
 VERDICT: NEEDS REVISION | IMPLEMENTATION READY
 ```
+
+Write this full review to `.captain-sdlc/plan-review.txt` (overwrite any prior
+round's copy) as you return it. The orchestrator reads your verdict and blocking
+list from that artifact rather than re-scanning your prose, and deletes it when the
+review phase ends — so each round produces a fresh one.
 
 ## Rules of engagement
 - Be specific, never generic. "Add error handling" is useless; "the load path at
