@@ -37,6 +37,9 @@ const CHECKBOX_PATTERN = /^- \[( |x|X)\]\s+(.+)$/;
 //   Blocked-by — comma-separated upstream ticket keys this ticket can't start before
 //   Owner      — the single human accountable for this ticket
 const ITEM_SUBSPEC_PATTERN = /^\s+-\s+(AC|DOD|How|Why|Blocked-by|Owner):\s*(.+)$/i;
+// The persisted immutable ticket key, stored as a trailing HTML comment on a Targeted
+// checkbox line: `- [ ] <text>  <!-- key: <rcId>#<epic-slug>#<digest> -->`.
+const KEY_COMMENT_PATTERN = /\s*<!--\s*key:\s*([^>]+?)\s*-->\s*$/i;
 const BULLET_PATTERN = /^- (.+)$/;
 // Tolerates bold house styles: "Status: X", "**Status**: X", "**Status:** X".
 const STATUS_PATTERN = /^\*{0,2}Status:?\*{0,2}:?\s+(.+)$/m;
@@ -414,6 +417,7 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
     | {
         text: string;
         checked: boolean;
+        key?: string;
         dod?: string[];
         howToImplement?: string[];
         designContext?: string[];
@@ -435,7 +439,13 @@ function parseTargeted(sections: SectionMap): TargetedSubsection[] {
     const checkbox = line.match(CHECKBOX_PATTERN);
     if (checkbox && current) {
       const checked = checkbox[1].toLowerCase() === "x";
-      currentItem = { text: checkbox[2].trim(), checked };
+      // The persisted immutable key rides along as a trailing `<!-- key: … -->` comment.
+      // Strip it off the text (so the text stays clean for display and for hashing brand-new
+      // items) and capture it as the item's identity. See seam-task-identity.md.
+      const keyMatch = checkbox[2].match(KEY_COMMENT_PATTERN);
+      const key = keyMatch ? keyMatch[1].trim() : undefined;
+      const text = checkbox[2].replace(KEY_COMMENT_PATTERN, "").trim();
+      currentItem = key ? { text, checked, key } : { text, checked };
       current.items.push(currentItem);
       continue;
     }

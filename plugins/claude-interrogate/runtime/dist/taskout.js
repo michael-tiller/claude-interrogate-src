@@ -83,6 +83,28 @@ export async function analyzeTaskout(input) {
 export async function generateTaskout(input) {
     const plan = normalizeTaskoutPlan(input.plan);
     validateRCId(plan.rc.id);
+    const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
+    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
+        milestone: plan.rc.milestone,
+        name: plan.rc.name,
+    });
+    const rcAbs = path.resolve(rcDirAbs, filename);
+    await assertWithinDir(rcAbs, rcDirAbs);
+    const rcFileExists = await fileExists(rcAbs);
+    if (input.mode === "maintenance" && !rcFileExists) {
+        throw new TaskoutError("mode-mismatch", `Caller said mode='maintenance' but ${rcAbs} does not exist. Use mode='bootstrap-rc' instead.`);
+    }
+    if (input.mode === "bootstrap-rc" && rcFileExists) {
+        throw new TaskoutError("mode-mismatch", `Caller said mode='bootstrap-rc' but ${rcAbs} already exists. Use mode='maintenance' instead.`);
+    }
+    // Maintenance rebuilds the file from a (keyless) LLM plan, so re-attach each ticket's PERSISTED
+    // key BEFORE anything keys the list — keeps identity immutable across reweords, and lets the
+    // order gate resolve `- Blocked-by:` tokens (which the human writes against persisted keys).
+    const existing = input.mode === "maintenance" ? await parseRCFile(rcAbs) : null;
+    if (existing) {
+        carryForwardKeys(existing.targeted, plan.targeted);
+        await enforceShippedTaskoutLock(existing, plan);
+    }
     // Write-path order gate (UNCONDITIONAL — bootstrap-rc is the first-author path that most needs it).
     // The Targeted list order IS the pushed (ClickUp) order, so refuse to write a plan whose declared
     // `- Blocked-by:` edges contradict that order, or that point at a ticket key absent from this RC
@@ -99,23 +121,6 @@ export async function generateTaskout(input) {
             ...order.phaseSequenceViolations.map((p) => `epic '${p.heading}' ${p.detail}`),
         ];
         throw new TaskoutError("order-violation", `Targeted order is inconsistent (the list order is the ClickUp order):\n- ${parts.join("\n- ")}`);
-    }
-    const rcDirAbs = path.resolve(input.outputDir, input.roadmapConfig.rcDir);
-    const filename = renderRCFilename(input.roadmapConfig.rcNamingScheme, {
-        milestone: plan.rc.milestone,
-        name: plan.rc.name,
-    });
-    const rcAbs = path.resolve(rcDirAbs, filename);
-    await assertWithinDir(rcAbs, rcDirAbs);
-    const rcFileExists = await fileExists(rcAbs);
-    if (input.mode === "maintenance" && !rcFileExists) {
-        throw new TaskoutError("mode-mismatch", `Caller said mode='maintenance' but ${rcAbs} does not exist. Use mode='bootstrap-rc' instead.`);
-    }
-    if (input.mode === "bootstrap-rc" && rcFileExists) {
-        throw new TaskoutError("mode-mismatch", `Caller said mode='bootstrap-rc' but ${rcAbs} already exists. Use mode='maintenance' instead.`);
-    }
-    if (input.mode === "maintenance") {
-        await enforceShippedTaskoutLock(rcAbs, plan);
     }
     const today = formatIsoDate((input.clock ?? (() => new Date()))());
     const target = input.mode === "maintenance" ? withDraftSuffix(rcAbs) : rcAbs;
@@ -158,16 +163,34 @@ function normalizeTaskoutPlan(plan) {
 /**
  * Compute the stable export keys (epic + per-ticket) for a Targeted section list. Extracted so the
  * read path ({@link exportTaskout}) and the write-path order gate (`generateTaskout`) derive
- * byte-identical keys. Keys hash item TEXT (+ encounter occurrence) only — sub-bullets ride along
- * untouched, so reordering or adding `- Blocked-by:`/`- Owner:` leaves keys stable.
+ * byte-identical keys.
+ *
+ * Identity is PERSISTED, not re-derived: an item that carries `item.key` (read back from its inline
+ * `<!-- key: … -->` comment, or echoed by the maintenance plan) keeps that key verbatim — so
+ * rewording the ticket text or its epic heading does NOT mint a new key (see seam-task-identity.md).
+ * Only a brand-new keyless item is minted, by the original algorithm (hash of TEXT + encounter
+ * occurrence; sub-bullets never hashed) — so legacy keyless files reproduce today's exact keys, then
+ * freeze on the next write. The epic key is taken from the section's first already-keyed item (so it
+ * stays coherent with its items across a heading rename) and only falls back to the heading slug for
+ * a wholly new epic.
  */
 export function keyedTargeted(targeted, rcId) {
     const slugCounts = new Map();
     return targeted.map((sub) => {
-        const baseSlug = slugifyHeading(sub.heading);
-        const priorUses = slugCounts.get(baseSlug) ?? 0;
-        slugCounts.set(baseSlug, priorUses + 1);
-        const epicKey = priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
+        const established = sub.items.find((it) => it.key && it.key.includes("#"))?.key;
+        let epicKey;
+        if (established) {
+            epicKey = established.slice(0, established.lastIndexOf("#"));
+        }
+        else {
+            const baseSlug = slugifyHeading(sub.heading);
+            const priorUses = slugCounts.get(baseSlug) ?? 0;
+            slugCounts.set(baseSlug, priorUses + 1);
+            epicKey =
+                priorUses === 0 ? `${rcId}#${baseSlug}` : `${rcId}#${baseSlug}-${priorUses + 1}`;
+        }
+        // Occurrence counts EVERY item (kept or new) so a freshly minted duplicate can't collide
+        // with a kept ticket that already owns the occurrence-0 digest.
         const textOccurrences = new Map();
         const items = sub.items.map((item) => {
             const normalized = normalizeItemText(item.text);
@@ -178,12 +201,14 @@ export function keyedTargeted(targeted, rcId) {
                 .update(`${normalized}\0${occurrence}`)
                 .digest("hex")
                 .slice(0, 12);
+            // Persisted key wins; mint only when this ticket has never been keyed.
+            const key = item.key ?? `${epicKey}#${digest}`;
             // AC / How / Why / Blocked-by / Owner ride along as separate fields — never
             // part of the hashed text, so keys stay stable.
             return {
                 text: item.text,
                 checked: item.checked,
-                key: `${epicKey}#${digest}`,
+                key,
                 ...(item.dod && item.dod.length > 0 ? { dod: item.dod } : {}),
                 ...(item.howToImplement && item.howToImplement.length > 0
                     ? { howToImplement: item.howToImplement }
@@ -345,10 +370,63 @@ function slugifyHeading(heading) {
 function normalizeItemText(text) {
     return text.normalize("NFKC").trim().replace(/\s+/g, " ");
 }
-async function enforceShippedTaskoutLock(rcAbs, plan) {
-    const existing = await parseRCFile(rcAbs);
-    if (!existing)
-        return;
+/**
+ * Re-attach persisted ticket keys to a maintenance plan that was rebuilt from a keyless LLM edit,
+ * so a ticket's identity survives a reword. Mutates plan items in place, filling `.key` where it is
+ * absent, in three safe-by-design layers (it never *guesses* a key onto the wrong ticket):
+ *   1. an item that already carries `.key` (the agent echoed it) is left as-is — authoritative;
+ *   2. else match the prior keyed item by exact normalized text, consuming duplicates 1:1 in
+ *      document order (handles reorder and an agent that dropped keys; robust to heading reweords);
+ *   3. else, within a heading-matched epic, if exactly ONE prior keyed item and ONE plan item
+ *      remain unmatched, pair them — the common single-ticket reword. Two-or-more leftovers on
+ *      either side are ambiguous, so it does NOT guess; those fall through to a fresh mint.
+ */
+function carryForwardKeys(existing, plan) {
+    const byText = new Map();
+    for (const sub of existing) {
+        for (const it of sub.items) {
+            if (!it.key)
+                continue;
+            const norm = normalizeItemText(it.text);
+            const queue = byText.get(norm) ?? [];
+            queue.push(it.key);
+            byText.set(norm, queue);
+        }
+    }
+    const consumed = new Set();
+    for (const sub of plan) {
+        for (const it of sub.items) {
+            if (it.key) {
+                consumed.add(it.key); // layer 1 — agent-echoed key wins
+                continue;
+            }
+            const queue = byText.get(normalizeItemText(it.text)); // layer 2 — exact text
+            if (queue && queue.length > 0) {
+                const key = queue.shift();
+                it.key = key;
+                consumed.add(key);
+            }
+        }
+    }
+    // layer 3 — unambiguous single-reword, scoped to a heading-matched epic.
+    const planByHeading = new Map();
+    for (const sub of plan) {
+        if (!planByHeading.has(sub.heading))
+            planByHeading.set(sub.heading, sub);
+    }
+    for (const exSub of existing) {
+        const planSub = planByHeading.get(exSub.heading);
+        if (!planSub)
+            continue;
+        const priorLeft = exSub.items.filter((it) => it.key && !consumed.has(it.key));
+        const planLeft = planSub.items.filter((it) => !it.key);
+        if (priorLeft.length === 1 && planLeft.length === 1) {
+            planLeft[0].key = priorLeft[0].key;
+            consumed.add(priorLeft[0].key);
+        }
+    }
+}
+async function enforceShippedTaskoutLock(existing, plan) {
     if (existing.status.toLowerCase() !== "shipped")
         return;
     const changed = [];
@@ -622,10 +700,13 @@ function renderTaskout(plan, today) {
         lines.push("");
     }
     else {
-        for (const sub of plan.targeted) {
+        // Render from the keyed list so every ticket's immutable identity is persisted inline as a
+        // trailing `<!-- key: … -->` comment (minted here for any brand-new ticket). On the next read
+        // parseTargeted strips it back off the text, so this round-trips byte-identical.
+        for (const sub of keyedTargeted(plan.targeted, plan.rc.id)) {
             lines.push(`### ${sub.heading}`);
             for (const item of sub.items) {
-                lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+                lines.push(`- [${item.checked ? "x" : " "}] ${item.text}  <!-- key: ${item.key} -->`);
                 if (item.dod && item.dod.length > 0) {
                     for (const criterion of item.dod) {
                         lines.push(`  - AC: ${criterion}`);

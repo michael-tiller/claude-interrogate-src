@@ -234,6 +234,11 @@ export interface TargetedSubsection {
   heading: string;
   // Per-ticket fields beyond the checkbox text, each held separately so item keys
   // (hashed from text only) stay stable:
+  //   key             — the PERSISTED, immutable ticket identity (`<rcId>#<epic-slug>#<digest>`).
+  //                     Stored inline in the RC markdown as a `<!-- key: … -->` comment on the
+  //                     checkbox line and read back as the source of truth — so rewording a
+  //                     ticket keeps its key. Absent only for a brand-new ticket, which gets one
+  //                     minted (and persisted) on the next write. See seam-task-identity.md.
   //   dod             — observable pass/fail acceptance criteria (the done-bar)
   //   howToImplement  — the concrete implementation path (file:line / seam)
   //   designContext   — traps and rationale to carry into execution
@@ -243,6 +248,7 @@ export interface TargetedSubsection {
   items: {
     text: string;
     checked: boolean;
+    key?: string;
     dod?: string[];
     howToImplement?: string[];
     designContext?: string[];

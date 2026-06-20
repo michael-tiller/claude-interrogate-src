@@ -85,11 +85,12 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
      to <owner> first.` (`<text>` is the blocker item's text; `<owner>` is the
      blocker's `owner`, else the assigned item's, else `"unassigned"`).
    - **Stale blocker reference** — a `blockedBy` key that is ABSENT from this (clean)
-     export. A reworded blocker mints a NEW key, so absence here is a dangling
-     reference, NOT an unblock. **Cancel** with a stale-reference repair message —
-     name the missing key and say the blocker was likely reworded; the human or
-     `/taskout`-maintenance must repair the `- Blocked-by:` anchor. Never report it
-     as "unblocked" and never proceed.
+     export. Ticket keys are now immutable (they persist inline and survive reweords),
+     so absence means the blocker ticket was DELETED or the anchor is a typo/wrong key —
+     a dangling reference, NOT an unblock. **Cancel** with a stale-reference repair
+     message — name the missing key and say the blocker was likely removed or mistyped;
+     the human or `/taskout`-maintenance must repair the `- Blocked-by:` anchor. Never
+     report it as "unblocked" and never proceed.
    - **`blocked-hitl`** — the item's key has a live entry in
      `.captain-sdlc/blocked-hitl.json` (a downgrade marker from a prior auto run).
      **Cancel in auto** (`/flay-auto`): auto must not resume work an earlier auto run

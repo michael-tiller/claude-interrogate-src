@@ -32,8 +32,16 @@ export interface ExportTaskoutInput {
 /**
  * Compute the stable export keys (epic + per-ticket) for a Targeted section list. Extracted so the
  * read path ({@link exportTaskout}) and the write-path order gate (`generateTaskout`) derive
- * byte-identical keys. Keys hash item TEXT (+ encounter occurrence) only — sub-bullets ride along
- * untouched, so reordering or adding `- Blocked-by:`/`- Owner:` leaves keys stable.
+ * byte-identical keys.
+ *
+ * Identity is PERSISTED, not re-derived: an item that carries `item.key` (read back from its inline
+ * `<!-- key: … -->` comment, or echoed by the maintenance plan) keeps that key verbatim — so
+ * rewording the ticket text or its epic heading does NOT mint a new key (see seam-task-identity.md).
+ * Only a brand-new keyless item is minted, by the original algorithm (hash of TEXT + encounter
+ * occurrence; sub-bullets never hashed) — so legacy keyless files reproduce today's exact keys, then
+ * freeze on the next write. The epic key is taken from the section's first already-keyed item (so it
+ * stays coherent with its items across a heading rename) and only falls back to the heading slug for
+ * a wholly new epic.
  */
 export declare function keyedTargeted(targeted: TargetedSubsection[], rcId: string): TaskoutExportSection[];
 /**
