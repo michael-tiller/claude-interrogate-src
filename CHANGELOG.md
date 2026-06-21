@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- **flay begin-of-flay in-progress hook** — when a flay begins (the Assigned phase, after the key validates and the Blocked-detector clears), flay now **auto-loads the warm spec** (the item's `howToImplement` / `designContext`) so the ticket is warm from the start instead of re-read at Planning, and writes the new `status: "in-progress"` field into `.captain-sdlc/flay-state.json`. That field is the local in-progress record AND an advisory hook a downstream tracker (the ClickUp mirror) can read to mirror the ticket to its in-progress status — flay still never calls a tracker itself (it emits the state; the blade reads it on its own next run). The contract — in-progress ⇔ a `flay-state.json` with `status: "in-progress"` and the immutable `task_id`; no-longer-in-progress ⇔ the file is gone, with the terminal `Needs-QA:`/`Completes:` status arriving via the existing Seam 7 commit footer — is documented in the flay skill's new **In-progress hook** section. Additive field: a legacy state file without `status` is still valid (file-presence = in-progress).
+
 ## [0.1.21] - 2026-06-20
 
 ### Added

@@ -27,10 +27,16 @@ Single JSON object (NOT an array — the WIP limit of 1 is enforced by structure
   "taskText": "<item text from the export>",
   "mode": "hitl",
   "phase": "implementing",
+  "status": "in-progress",
   "startedAt": "<ISO>", "updatedAt": "<ISO>",
   "history": [{ "phase": "assigned", "at": "<ISO>" }]
 }
 ```
+
+`status` is the coarse, tracker-facing rollup — set to `"in-progress"` on the first
+write at Assigned and left there for the whole active life (the fine-grained `phase`
+still tracks the SDLC station). It is the in-progress hook a downstream tracker reads
+(see **In-progress hook**); additive, so a legacy file without it is still valid.
 
 Rewrite it at EVERY phase transition. Delete it on done or abandon, and prepend an
 outcome line to `scratch.md` (e.g. `- flayed <key>: committed <hash> as Needs-QA`).
@@ -57,6 +63,29 @@ created lazily on the first downgrade). Lifecycle:
 The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and let
 `/flay` proceed) on a downgraded key.
 
+## In-progress hook (for downstream trackers)
+
+flay marks the ticket in-progress the moment it commits to the work — the Assigned
+write sets `status: "in-progress"` in `flay-state.json`. That field is both the local
+in-progress record and the seam a tracker (the ClickUp mirror) consumes. flay itself
+still never calls a tracker (Principle 1): it emits the state; the blade reads it.
+
+Contract for a consumer (advisory, best-effort — a missing/disabled mirror changes
+nothing about the flay):
+
+- **In-progress** ⇔ `.captain-sdlc/flay-state.json` exists with `status:
+  "in-progress"`. Read `task_id` (the immutable ticket key) and `rcId`, map the key
+  to the tracker's in-progress status. A legacy file without `status` → treat
+  file-presence as in-progress.
+- **No longer in-progress** ⇔ the file is gone (deleted at Done/abandon). flay does
+  not encode the terminal status here — that arrives via the Seam 7 commit footer
+  (`Needs-QA:` / `Completes:`) the release-clickup blade already mirrors.
+
+This is in-session orchestration: flay only writes the signal. A consumer reads it on
+its next `clickup-sync`, and the ClickUp mirror plugin additionally ties a PostToolUse
+hook to this write so — when its time-tracking opt-in is on — the begin is mirrored in
+real time. Either way flay never calls the tracker: the signal is observed, not pushed.
+
 ## Phases
 
 `assigned → planning → plan-approved → implementing → verifying → committing → done`
@@ -70,8 +99,11 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
    show the export's nearby keys, let the human re-pick — never fuzzy-assign.
    Already-checked item → stop and say so (the work appears done). Then run the
    **Blocked-detector** (below); if it cancels, abort here — do NOT write the state
-   file. Otherwise write the state file, then classify the item for taste (see
-   **Taste gate**) before planning.
+   file. Otherwise: **auto-load the warm spec** from the same export (the assigned
+   item's `howToImplement` / `designContext`, if any) so the ticket is warm from the
+   start rather than re-read at Planning; write the state file with `status:
+   "in-progress"` (the in-progress hook — see **In-progress hook**); then classify the
+   item for taste (see **Taste gate**) before planning.
 
    **Blocked-detector (pre-flight, READ-ONLY).** Before committing to the work,
    confirm it is actually runnable. This reads only — the fresh `design_taskout_export`
@@ -101,8 +133,8 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
    Cancel = abort the Assigned phase before any `flay-state.json` is created; report
    the reason and stop. The detector adds no machinery: it surfaces the blocker, the
    human (or `/taskout`) resolves it in the markdown.
-2. **Planning.** Enter Claude Code plan mode for the implementation design. First
-   read the assigned item's spec from the export. **Warm vs cold:**
+2. **Planning.** Enter Claude Code plan mode for the implementation design. The
+   assigned item's spec was already loaded at Assigned. **Warm vs cold:**
    - *Warm* — the item carries `howToImplement` / `designContext` (taskout already
      grounded it in a Plan/ doc). Carry that spec forward as the plan's spine:
      verify it against the live code, fill gaps, correct drift. Do NOT re-derive it
@@ -259,6 +291,8 @@ here, never a reason to skip the trail.
   and may only cancel; it never writes the roadmap or a tracker. A surfaced blocker /
   stale reference is repaired by the human or `/taskout`, not by flay.
 - No git hooks; everything is in-session orchestration.
-- Downstream blades read the state file advisorily; flay never calls a tracker.
+- Downstream blades read the state file advisorily; flay never calls a tracker. The
+  `status: "in-progress"` field is the begin-of-flay hook a tracker (ClickUp mirror)
+  consumes — flay emits it, the blade reads it (see **In-progress hook**).
 - Taste-laden items (art/UX/UI) trip the **taste gate**: auto must push for
   collaboration or a Socratic-into-attempt — never silently vibe a taste call.

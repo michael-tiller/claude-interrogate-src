@@ -17,7 +17,9 @@ Follow the `claude-interrogate-flay` skill with **mode = hitl**.
 3. Pause for an explicit go-ahead at every phase boundary:
    assigned → planning → plan-approved → implementing → verifying → committing → done.
 4. State lives in `.captain-sdlc/flay-state.json` (single task — an existing file
-   forces resume-or-abandon first). Outcome line goes to `scratch.md` on completion.
+   forces resume-or-abandon first). Begin auto-loads the warm spec and marks the
+   ticket `status: "in-progress"` — a hook the ClickUp mirror can read. Outcome line
+   goes to `scratch.md` on completion.
 5. Flay never selects, ranks, or recommends work. Assignment is the human's.
 6. **Taste gate.** For a taste-laden item (art / UX / UI), work the taste decisions
    out WITH the human — enumerate options for icon / layout / feel, don't default
