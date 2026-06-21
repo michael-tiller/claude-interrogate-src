@@ -28,6 +28,8 @@ Single JSON object (NOT an array — the WIP limit of 1 is enforced by structure
   "mode": "hitl",
   "phase": "implementing",
   "status": "in-progress",
+  "baseBranch": "dev",
+  "branch": "feat/<slug>",
   "startedAt": "<ISO>", "updatedAt": "<ISO>",
   "history": [{ "phase": "assigned", "at": "<ISO>" }]
 }
@@ -37,6 +39,11 @@ Single JSON object (NOT an array — the WIP limit of 1 is enforced by structure
 write at Assigned and left there for the whole active life (the fine-grained `phase`
 still tracks the SDLC station). It is the in-progress hook a downstream tracker reads
 (see **In-progress hook**); additive, so a legacy file without it is still valid.
+
+`baseBranch` is the integration branch flay started on (the PR target at Done);
+`branch` is the per-task `feat/…` working branch, created at Implementing. Both are
+additive — a legacy file without them predates branch discipline (treat the current
+branch as base, skip the auto-PR). See **Branch discipline**.
 
 Rewrite it at EVERY phase transition. Delete it on done or abandon, and prepend an
 outcome line to `scratch.md` (e.g. `- flayed <key>: committed <hash> as Needs-QA`).
@@ -85,6 +92,17 @@ This is in-session orchestration: flay only writes the signal. A consumer reads 
 its next `clickup-sync`, and the ClickUp mirror plugin additionally ties a PostToolUse
 hook to this write so — when its time-tracking opt-in is on — the begin is mirrored in
 real time. Either way flay never calls the tracker: the signal is observed, not pushed.
+
+## Branch discipline
+
+flay owns the **per-task tier** of git hygiene: it never edits or commits on the base
+branch. Each task gets its own `feat/<slug>` branch, created off the integration base
+at Implementing and landed via a PR at Done — `dev` is a sink (PR squash-merged to land
+the task), `main`/`master` is protected (push + PR, the human merges; never an
+`--admin` bypass). The base is whatever branch flay started on, captured as
+`baseBranch`. The higher tier — `dev → main`, versioning, changelog, tags — belongs to
+release (claude-release), not flay. Costs almost nothing and keeps every flayed task a
+reviewable unit.
 
 ## Phases
 
@@ -205,8 +223,14 @@ real time. Either way flay never calls the tracker: the signal is observed, not 
 
    Plan approval (ExitPlanMode) is a harness gate in BOTH modes. On approval →
    record `plan-approved`.
-3. **Implementing.** Execute the approved plan. HITL: confirm before starting;
-   auto: proceed.
+3. **Implementing.** First put the work on its own branch — **flay never edits on the
+   base branch.** From a clean `baseBranch` (the branch flay started on, recorded at
+   Assigned), create and switch to a `feat/<slug>` branch (slug from the task key,
+   sanitized — no `#`, e.g. `feat/<epic-slug>-<digest>`); record `branch` in the state
+   file. On resume, switch to the recorded `branch` (create it off `baseBranch` if
+   missing). If `baseBranch` is the protected default (`main`/`master`), still branch
+   off it but warn that the Done PR targets a protected base. Then execute the approved
+   plan. HITL: confirm before starting; auto: proceed.
 4. **Verifying.** Run the project's OWN verify commands — from its CLAUDE.md,
    package.json scripts, or equivalent. Never invent a test command; if none
    exists, say so and let the human decide what verification means here.
@@ -229,7 +253,13 @@ real time. Either way flay never calls the tracker: the signal is observed, not 
    - Auto: default `Needs-QA:` (unwatched work is exactly what QA exists for);
      only use `Completes:` if the human pre-authorized it when invoking.
    Use `Implements:` instead when the commit advances but does not finish the item.
-6. **Done.** Delete the state file AND clear this key's entry from
+6. **Done.** **Land the branch first:** push `branch` and open a PR into `baseBranch`
+   (use `gh pr create` when available; else push and tell the human to open it). If
+   `baseBranch` is the protected default (`main`/`master`) → push + open the PR + STOP
+   for the human to merge (never `--admin`-bypass a protected branch). Else (a sink like
+   `dev`) → merge the PR (squash) and delete the feat branch, landing the task. HITL
+   confirms the merge; auto merges a sink but always stops on a protected base. Then
+   delete the state file AND clear this key's entry from
    `.captain-sdlc/blocked-hitl.json` if present (the HITL resume completed, so the
    downgrade marker has served its purpose — leaving it would wrongly cancel a future
    `/flay-auto` on the same key). Prepend the scratch.md outcome line, report: key,
@@ -291,6 +321,9 @@ here, never a reason to skip the trail.
   and may only cancel; it never writes the roadmap or a tracker. A surfaced blocker /
   stale reference is repaired by the human or `/taskout`, not by flay.
 - No git hooks; everything is in-session orchestration.
+- Per-task branch: flay edits on a `feat/<slug>` branch (created at Implementing) and
+  lands it via a PR into `baseBranch` at Done — never commits to a protected branch
+  (`main`) directly (see **Branch discipline**).
 - Downstream blades read the state file advisorily; flay never calls a tracker. The
   `status: "in-progress"` field is the begin-of-flay hook a tracker (ClickUp mirror)
   consumes — flay emits it, the blade reads it (see **In-progress hook**).
