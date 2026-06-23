@@ -27,10 +27,23 @@ Single JSON object (NOT an array — the WIP limit of 1 is enforced by structure
   "taskText": "<item text from the export>",
   "mode": "hitl",
   "phase": "implementing",
+  "status": "in-progress",
+  "baseBranch": "dev",
+  "branch": "feat/<slug>",
   "startedAt": "<ISO>", "updatedAt": "<ISO>",
   "history": [{ "phase": "assigned", "at": "<ISO>" }]
 }
 ```
+
+`status` is the coarse, tracker-facing rollup — set to `"in-progress"` on the first
+write at Assigned and left there for the whole active life (the fine-grained `phase`
+still tracks the SDLC station). It is the in-progress hook a downstream tracker reads
+(see **In-progress hook**); additive, so a legacy file without it is still valid.
+
+`baseBranch` is the integration branch flay started on (the PR target at Done);
+`branch` is the per-task `feat/…` working branch, created at Implementing. Both are
+additive — a legacy file without them predates branch discipline (treat the current
+branch as base, skip the auto-PR). See **Branch discipline**.
 
 Rewrite it at EVERY phase transition. Delete it on done or abandon, and prepend an
 outcome line to `scratch.md` (e.g. `- flayed <key>: committed <hash> as Needs-QA`).
@@ -57,6 +70,40 @@ created lazily on the first downgrade). Lifecycle:
 The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and let
 `/flay` proceed) on a downgraded key.
 
+## In-progress hook (for downstream trackers)
+
+flay marks the ticket in-progress the moment it commits to the work — the Assigned
+write sets `status: "in-progress"` in `flay-state.json`. That field is both the local
+in-progress record and the seam a tracker (the ClickUp mirror) consumes. flay itself
+still never calls a tracker (Principle 1): it emits the state; the blade reads it.
+
+Contract for a consumer (advisory, best-effort — a missing/disabled mirror changes
+nothing about the flay):
+
+- **In-progress** ⇔ `.captain-sdlc/flay-state.json` exists with `status:
+  "in-progress"`. Read `task_id` (the immutable ticket key) and `rcId`, map the key
+  to the tracker's in-progress status. A legacy file without `status` → treat
+  file-presence as in-progress.
+- **No longer in-progress** ⇔ the file is gone (deleted at Done/abandon). flay does
+  not encode the terminal status here — that arrives via the Seam 7 commit footer
+  (`Needs-QA:` / `Completes:`) the release-clickup blade already mirrors.
+
+This is in-session orchestration: flay only writes the signal. A consumer reads it on
+its next `clickup-sync`, and the ClickUp mirror plugin additionally ties a PostToolUse
+hook to this write so — when its time-tracking opt-in is on — the begin is mirrored in
+real time. Either way flay never calls the tracker: the signal is observed, not pushed.
+
+## Branch discipline
+
+flay owns the **per-task tier** of git hygiene: it never edits or commits on the base
+branch. Each task gets its own `feat/<slug>` branch, created off the integration base
+at Implementing and landed via a PR at Done — `dev` is a sink (PR squash-merged to land
+the task), `main`/`master` is protected (push + PR, the human merges; never an
+`--admin` bypass). The base is whatever branch flay started on, captured as
+`baseBranch`. The higher tier — `dev → main`, versioning, changelog, tags — belongs to
+release (claude-release), not flay. Costs almost nothing and keeps every flayed task a
+reviewable unit.
+
 ## Phases
 
 `assigned → planning → plan-approved → implementing → verifying → committing → done`
@@ -70,8 +117,11 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
    show the export's nearby keys, let the human re-pick — never fuzzy-assign.
    Already-checked item → stop and say so (the work appears done). Then run the
    **Blocked-detector** (below); if it cancels, abort here — do NOT write the state
-   file. Otherwise write the state file, then classify the item for taste (see
-   **Taste gate**) before planning.
+   file. Otherwise: **auto-load the warm spec** from the same export (the assigned
+   item's `howToImplement` / `designContext`, if any) so the ticket is warm from the
+   start rather than re-read at Planning; write the state file with `status:
+   "in-progress"` (the in-progress hook — see **In-progress hook**); then classify the
+   item for taste (see **Taste gate**) before planning.
 
    **Blocked-detector (pre-flight, READ-ONLY).** Before committing to the work,
    confirm it is actually runnable. This reads only — the fresh `design_taskout_export`
@@ -101,8 +151,8 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
    Cancel = abort the Assigned phase before any `flay-state.json` is created; report
    the reason and stop. The detector adds no machinery: it surfaces the blocker, the
    human (or `/taskout`) resolves it in the markdown.
-2. **Planning.** Enter Claude Code plan mode for the implementation design. First
-   read the assigned item's spec from the export. **Warm vs cold:**
+2. **Planning.** Enter Claude Code plan mode for the implementation design. The
+   assigned item's spec was already loaded at Assigned. **Warm vs cold:**
    - *Warm* — the item carries `howToImplement` / `designContext` (taskout already
      grounded it in a Plan/ doc). Carry that spec forward as the plan's spine:
      verify it against the live code, fill gaps, correct drift. Do NOT re-derive it
@@ -173,8 +223,14 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
 
    Plan approval (ExitPlanMode) is a harness gate in BOTH modes. On approval →
    record `plan-approved`.
-3. **Implementing.** Execute the approved plan. HITL: confirm before starting;
-   auto: proceed.
+3. **Implementing.** First put the work on its own branch — **flay never edits on the
+   base branch.** From a clean `baseBranch` (the branch flay started on, recorded at
+   Assigned), create and switch to a `feat/<slug>` branch (slug from the task key,
+   sanitized — no `#`, e.g. `feat/<epic-slug>-<digest>`); record `branch` in the state
+   file. On resume, switch to the recorded `branch` (create it off `baseBranch` if
+   missing). If `baseBranch` is the protected default (`main`/`master`), still branch
+   off it but warn that the Done PR targets a protected base. Then execute the approved
+   plan. HITL: confirm before starting; auto: proceed.
 4. **Verifying.** Run the project's OWN verify commands — from its CLAUDE.md,
    package.json scripts, or equivalent. Never invent a test command; if none
    exists, say so and let the human decide what verification means here.
@@ -197,7 +253,13 @@ The Blocked-detector at Assigned reads this ledger to cancel `/flay-auto` (and l
    - Auto: default `Needs-QA:` (unwatched work is exactly what QA exists for);
      only use `Completes:` if the human pre-authorized it when invoking.
    Use `Implements:` instead when the commit advances but does not finish the item.
-6. **Done.** Delete the state file AND clear this key's entry from
+6. **Done.** **Land the branch first:** push `branch` and open a PR into `baseBranch`
+   (use `gh pr create` when available; else push and tell the human to open it). If
+   `baseBranch` is the protected default (`main`/`master`) → push + open the PR + STOP
+   for the human to merge (never `--admin`-bypass a protected branch). Else (a sink like
+   `dev`) → merge the PR (squash) and delete the feat branch, landing the task. HITL
+   confirms the merge; auto merges a sink but always stops on a protected base. Then
+   delete the state file AND clear this key's entry from
    `.captain-sdlc/blocked-hitl.json` if present (the HITL resume completed, so the
    downgrade marker has served its purpose — leaving it would wrongly cancel a future
    `/flay-auto` on the same key). Prepend the scratch.md outcome line, report: key,
@@ -259,6 +321,11 @@ here, never a reason to skip the trail.
   and may only cancel; it never writes the roadmap or a tracker. A surfaced blocker /
   stale reference is repaired by the human or `/taskout`, not by flay.
 - No git hooks; everything is in-session orchestration.
-- Downstream blades read the state file advisorily; flay never calls a tracker.
+- Per-task branch: flay edits on a `feat/<slug>` branch (created at Implementing) and
+  lands it via a PR into `baseBranch` at Done — never commits to a protected branch
+  (`main`) directly (see **Branch discipline**).
+- Downstream blades read the state file advisorily; flay never calls a tracker. The
+  `status: "in-progress"` field is the begin-of-flay hook a tracker (ClickUp mirror)
+  consumes — flay emits it, the blade reads it (see **In-progress hook**).
 - Taste-laden items (art/UX/UI) trip the **taste gate**: auto must push for
   collaboration or a Socratic-into-attempt — never silently vibe a taste call.

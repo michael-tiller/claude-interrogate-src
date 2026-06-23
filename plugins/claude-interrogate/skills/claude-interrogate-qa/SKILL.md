@@ -16,6 +16,11 @@ and it never picks the work (the human assigns the key). The default instrument 
 the **human's eyes**. Elevation swaps in **tests** for that instrument, but ONLY
 where a machine can actually decide the AC — taste it must always hand back.
 
+A plain `/qa` is a **guided tour**: the AI does the setup legwork — it stands up the
+test environment, drives the app to the relevant state, and frames each criterion — so
+the human only has to look and confirm, and the two **close the ticket together** at
+the end. The AI prepares; the human judges; neither does the other's job.
+
 Arguments: `<task-key> [output-dir]`. Elevation is a request, not a separate
 command: `/qa <key>` runs HITL; `/qa <key> --elevate` (or "elevate past HITL",
 "skip the human", "just run the tests") asks QA to omit the human where it can.
@@ -60,9 +65,12 @@ human. No global WIP lock (unlike flay) — QA can clear several `Needs-QA` item
    if you want," so the human knows elevation is on the table.
 
 3. **Mode resolution (the elevation gate).**
-   - **HITL (default).** Walk the human through each AC in order. For a visual AC,
-     capture a screenshot first, then ask the human to accept/reject against it.
-     Record each verdict in `verdict.json`.
+   - **HITL (default) — the guided tour.** Walk the human through each AC in order, but
+     do the setup FOR them: stand up the environment and drive it to the criterion
+     (launch via the `run` skill, navigate to the state, seed preconditions, run the
+     relevant command), then present it — a live view or a screenshot — and ask the
+     human to accept/reject against what they see. The AI prepares each check; the
+     human only judges. Record each verdict in `verdict.json`.
    - **Elevated (`--elevate` / explicit request).** Honored per-AC, never blanket:
      - **All AC objective** → write/run real checks for each, decide pass/fail
        mechanically, **omit the human entirely**. mode = `elevated`.
@@ -80,16 +88,22 @@ human. No global WIP lock (unlike flay) — QA can clear several `Needs-QA` item
      human takes it, those test files are a code change → commit them with
      `Implements:`/`Completes: <key>` per Seam 7.
 
-4. **Checking.** Run the resolved plan. Use the project's OWN commands — its test
-   runner, its run/start script (see the `run` skill / its CLAUDE.md). Never invent
-   a verify command; if an objective AC has no runnable check and you can't write a
-   fair one, say so and fall back to a human check for that AC.
+4. **Checking (guided tour).** Run the resolved plan, setting up each AC so it is
+   observable BEFORE asking anything of the human: use the project's OWN commands — its
+   test runner, its run/start script (see the `run` skill / its CLAUDE.md) — to launch
+   the app, reach the relevant screen/state, and establish preconditions, so the human
+   is handed a ready-to-judge check, not a setup chore. Take one AC at a time; confirm
+   each with the human before moving to the next. Never invent a verify command; if an
+   objective AC has no runnable check and you can't write a fair one, say so and fall
+   back to a human check for that AC.
 
 5. **Verdict.** Write `verdict.json` and a short human-readable summary, then:
-   - **PASS** (every AC `pass`; every taste AC human-seen with evidence) → the item
-     is cleared to Complete. Hand the key to the **task-footers flow**
-     (claude-release-clickup) if installed, with verb **`Completes`** — it defaults
-     to this key. If QA produced a commit (persisted tests/evidence), that commit
+   - **PASS** (every AC `pass`; every taste AC human-seen with evidence) → **close the
+     ticket together**: confirm with the human that the tour cleared every criterion,
+     then promote it to Complete on their go-ahead. Hand the key to the **task-footers
+     flow** (claude-release-clickup) if installed, with verb **`Completes`** — it
+     defaults to this key (the `Completes:` is what the ClickUp lifecycle hook reads to
+     move the ticket Review → Done and stop its stopwatch). If QA produced a commit (persisted tests/evidence), that commit
      carries `Completes: <key>`. If QA changed no code, record the cleared verdict
      and hand it to the human / release pass to mark the checkbox `[x]` — **QA never
      rewrites the roadmap itself** and never fabricates a commit just to carry a
