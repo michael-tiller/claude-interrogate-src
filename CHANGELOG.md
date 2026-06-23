@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.23] - 2026-06-23
+
+### Added
+
+- **`/inquisitor` next-target orchestrator** — the deliberate counterpart to flay's "never pick" rule. It ranks the auto-pickable taskout items in roadmap order and either recommends the next one with rationale (`/inquisitor`) or dispatches `/flay-auto` on it (`/inquisitor-auto`); on an empty board it surfaces `/roadmap` and `/hunt` for the human to choose. Single-stream (WIP=1, gated on `flay-state.json`), single-RC export, literal `rcId` from the roadmap index (preserves zero-padding so keys mint correctly). Cross-RC blocked items are surfaced for the human and never auto-picked, so a dispatch is never the dead-end flay-auto's single-RC Blocked-detector would cancel. Ranker + dispatch table only — flay still owns the SDLC chain. Ships as plugin commands (`inquisitor`, `inquisitor-auto`) and a Codex/Skill-tool `SKILL.md` wrapper.
+
 ## [0.1.22] - 2026-06-22
 
 ### Added
