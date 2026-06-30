@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.24] - 2026-06-30
+
+### Fixed
+
+- **Inquisitor carry-redirect detection** — the RC-walk no longer wedges on a pre-ADR-0030 source-RC breadcrumb. Such a roadmap leaves an *unchecked* `CARRIED to <RC>` (or `→ M{NN}`) pointer in the source milestone whose live form is a fresh box in the destination milestone; the walk treated that pointer as open work and never advanced past it. Now an RC whose only unchecked items are carry-redirects is treated as fully checked and stepped past, and carry-redirects are excluded from auto-pick (dispatching one would hand flay-auto an empty pointer with no spec).
+- **Inquisitor in-review detection** — auto-pick now skips work that is built but not yet QA-closed. Because the roadmap checkbox is binary, an item flayed to a `Needs-QA:` (or mid-build `Implements:`) footer still reads `[ ]` and looked identical to fresh to-do, so the autopilot would re-dispatch it to be rebuilt from scratch (flay's own gate only catches the terminal `[x]`). The walk now resolves the latest Seam-7 footer verb per item key — reusing `release-pass --list-transitions` when the engine is reachable, else parsing commit footers inline with `git log`, and degrading to today's binary behavior when neither is available — and routes in-review items to the needs-a-human bucket. Markdown stays binary (clickup protocol Principle 1): no new glyph, no hard dependency on the ClickUp mirror. Residual gap documented in the skill: work built entirely outside the Seam-7 flow leaves no footer and cannot be caught at pick time (a process guard, not detection).
+
 ## [0.1.23] - 2026-06-23
 
 ### Added
