@@ -54,10 +54,21 @@ Step through the RCs in index order, running a fresh `design_taskout_export` per
 caching by `rcId`:
 
 - An RC that is **fully checked** (every item `[x]`) is done → advance past it.
-- The **first RC with any incomplete work** is where the walk lands — do NOT advance past
-  incomplete-but-blocked work to a later RC (roadmap order is the human's sequence; surface
-  the gate, don't leap it). In that RC: an **auto-pickable** item exists → that is the pick;
-  none (only blocked / cross-RC / stale) → report the **needs-a-human** bucket and STOP.
+- **Carry-redirect breadcrumbs don't count as open work.** A pre-ADR-0030 roadmap can leave an
+  *unchecked* item in the **source** RC that only points its live form elsewhere — text marked
+  `CARRIED to <other RC>` (legacy) or a bare `→ M{NN}_NAME` arrow to a different RC. Under
+  ADR-0030 (`carried = Targeted by default`) the real item lives in the destination RC's
+  `### Carried from M0x` Targeted epic (or the source's `## Out of Scope`), so the breadcrumb is
+  a pointer, not work. Treat it as satisfied for the walk: an RC whose **only** unchecked items
+  are carry-redirects is "fully checked" → advance past it. Never land the walk on, or dispatch,
+  a carry-redirect — flay-auto would get an empty pointer with no spec. (The export surfaces no
+  structured carry flag, so this is a text-match on the item; a `carriedTo` export field is the
+  robust upgrade.)
+- The **first RC with genuine incomplete work** — an unchecked item that is NOT a carry-redirect
+  — is where the walk lands. Do NOT advance past incomplete-but-blocked work to a later RC
+  (roadmap order is the human's sequence; surface the gate, don't leap it). In that RC: an
+  **auto-pickable** item exists → that is the pick; none (only blocked / cross-RC / stale /
+  carry-redirect) → report the **needs-a-human** bucket and STOP.
 - **Empty board** may be claimed only after confirming **every** listed RC is fully checked
   (or there is no roadmap). The export is a *prefix* — stop as soon as an RC lands the walk —
   but to declare empty you must have walked them all.
@@ -90,10 +101,12 @@ For a candidate item, classify each `blockedBy` token:
    ("blocked by cross-RC `<key>` — verify upstream is done, then flay manually"); never rank
    it top, never dispatch it.
 
-**Auto-pickable** = unchecked AND not present in `.captain-sdlc/blocked-hitl.json` AND
-every blocker (if any) is case-1/2-satisfied (all resolve in-RC and are checked). Rank the
-auto-pickable set by export order — it already encodes the human's intended sequence — and
-the top one is the pick. No scoring matrix.
+**Auto-pickable** = unchecked AND not a carry-redirect (a `CARRIED to <RC>` / `→ M{NN}_NAME`
+breadcrumb whose live form is another RC, per ADR-0030) AND not present in
+`.captain-sdlc/blocked-hitl.json` AND not in-review (no live `Needs-QA:` / `Implements:` Seam-7
+footer lacking a later `Completes:` / `[x]` — see *In-review detection*) AND every blocker (if any)
+is case-1/2-satisfied (all resolve in-RC and are checked). Rank the auto-pickable set by export order — it already encodes the
+human's intended sequence — and the top one is the pick. No scoring matrix.
 <!-- ponytail: export order IS the ranking. Add weighting only if a real priority signal
      ever lands on the items; today there isn't one. -->
 
@@ -101,11 +114,43 @@ the top one is the pick. No scoring matrix.
 appends a key on downgrade and *deletes* it at Done / on `[x]`, with no resolved-but-present
 state. So "has a live entry" = the key is present in the JSON.
 
+### In-review detection (Seam-7 footer aware)
+
+The roadmap checkbox is binary, so an item **built but not yet QA-closed** — flayed to a
+`Needs-QA:` footer, or mid-build with an `Implements:` footer, both still `[ ]` — reads identically
+to fresh to-do work. flay's own gate only catches the terminal `[x]`, so without this the autopilot
+re-dispatches in-review work to be *rebuilt from scratch*.
+
+Reuse the **Seam-7 footer** as the in-review signal (the same one `clickup-sync` derives lifecycle
+from) — don't invent a marker; markdown stays binary (clickup protocol Principle 1).
+
+- **Resolve the latest verb per item key** over the consuming repo, range `<last tag>..HEAD`:
+  `Implements:` → in-progress, `Needs-QA:` → in-review, `Completes:` → done; **last verb wins per
+  key**. Prefer `release-pass.mjs --list-transitions --range <lastTag>..HEAD --repo <project>` when
+  the Seam-7 engine (claude-release-clickup) is installed and reachable; **else parse inline** —
+  `git log` the trailer block (last paragraph) of each commit for lines matching
+  `^(Implements|Needs-QA|Completes): <key>$`, newest-wins per key (this mirrors release-pass's own
+  resolver, which is itself just git-footer parsing). **Degrade gracefully:** no git / no footers /
+  neither path reachable → skip this check, fall back to binary (today's behavior). Never block.
+- An item whose latest verb is `Needs-QA:` or `Implements:` (with no later `Completes:`, box still
+  `[ ]`) is **in-review → not auto-pickable**. Put it in the **needs-a-human** bucket: "in review
+  (Needs-QA) — it's built; verify/QA it, don't flay-build." Never rank it top, never dispatch.
+
+**Residual gap (process, not detection).** Work built *entirely outside* the Seam-7 flow leaves no
+footer — a `[ ]` with no verb reads as genuine to-do even when the code is done and only the
+roadmap text went stale. Pick-time detection can't catch that; the guards are process (route work
+through flay/Seam-7 so it carries a footer) and verifying code state before a from-scratch flay.
+Called out so it's a known limit, not a silent miss.
+<!-- ponytail: footer-aware — no new markdown glyph, no hard ClickUp dep. The inline git-parse is
+     faithful (release-pass resolves the same way), so the dependency-free path isn't a degraded
+     approximation. -->
+
 ### Three outcomes
 
 - An auto-pickable target exists → recommend / dispatch it (see **Modes**).
 - Items remain but none auto-pickable — intra-RC blockers unchecked (case 2), cross-RC deps
-  (case 4), or only stale-flagged (case 3) → report them with blockers and owners; this is
+  (case 4), only stale-flagged (case 3), or **in-review** (Seam-7 Needs-QA/Implements) → report them
+  with blockers / owners / lifecycle state; this is
   the **needs-a-human** bucket, NOT an empty board. Do **not** fall through to the
   empty-board fallback.
 - The board is genuinely empty (all items checked across the roadmap, or no roadmap at all)
