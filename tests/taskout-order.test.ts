@@ -72,7 +72,7 @@ function buildPlan(targeted: TargetedSubsection[]): ConfirmedTaskoutPlan {
     goals: ["Ship in order."],
     targeted,
     blockersAndDeps: [],
-    definitionOfDone: ["Ships ordered."],
+    definitionOfDone: [{ text: "Ships ordered.", checked: false }],
     references: [],
     overrides: [],
   };

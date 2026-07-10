@@ -72,7 +72,7 @@ function buildPlan(targetedItems: ConfirmedTaskoutPlan["targeted"]): ConfirmedTa
     goals: ["Stable keys."],
     targeted: targetedItems,
     blockersAndDeps: [],
-    definitionOfDone: ["Ships clean."],
+    definitionOfDone: [{ text: "Ships clean.", checked: false }],
     references: [],
     overrides: [],
   };

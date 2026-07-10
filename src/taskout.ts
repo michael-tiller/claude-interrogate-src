@@ -12,6 +12,7 @@ import {
   BlockerEntry,
   CarriedFromCandidate,
   ConfirmedTaskoutPlan,
+  DoDItem,
   InterviewQuestion,
   MappedConceptSummary,
   OrderDiagnostics,
@@ -258,7 +259,28 @@ function normalizeTaskoutPlan(plan: ConfirmedTaskoutPlan): ConfirmedTaskoutPlan 
       );
     }
   }
+  plan.definitionOfDone = normalizeDoDItems(plan.definitionOfDone);
   return plan;
+}
+
+// The MCP layer types confirmed_plan loosely (`{ type: "object" }`), so a caller may
+// still send DOD entries as plain strings (the pre-DoDItem shape) or omit `checked`.
+// Normalize both into the current { text, checked, subheading? } shape rather than
+// crashing on a shape the schema never enforced.
+function normalizeDoDItems(items: unknown[]): DoDItem[] {
+  return items.map((raw) => {
+    if (typeof raw === "string") {
+      return { text: raw, checked: false };
+    }
+    const item = raw as Partial<DoDItem> | null | undefined;
+    return {
+      text: typeof item?.text === "string" ? item.text : "",
+      checked: Boolean(item?.checked),
+      ...(typeof item?.subheading === "string" && item.subheading
+        ? { subheading: item.subheading }
+        : {}),
+    };
+  });
 }
 
 export interface ExportTaskoutInput {
@@ -569,7 +591,7 @@ async function enforceShippedTaskoutLock(
   if (existing.theme && existing.theme !== plan.theme) changed.push("theme");
   if (!sameArray(existing.goals, plan.goals)) changed.push("goals");
   if (!sameTargeted(existing.targeted, plan.targeted)) changed.push("targeted");
-  if (!sameArray(existing.definitionOfDone, plan.definitionOfDone)) {
+  if (!sameDoD(existing.definitionOfDone, plan.definitionOfDone)) {
     changed.push("definitionOfDone");
   }
   if (plan.rc.milestone !== existing.milestone) changed.push("milestone");
@@ -822,9 +844,9 @@ function buildTaskoutQuestions(
     id: "dod",
     theme: "Definition of Done",
     question:
-      "List 4-8 testable pass/fail assertions that gate ship for the whole RC — the shared bar every ticket also clears, distinct from per-ticket acceptance criteria.",
+      "List 4-8 testable pass/fail assertions that gate ship for the whole RC — the shared bar every ticket also clears, distinct from per-ticket acceptance criteria. In maintenance mode, echo each existing item's checked state back (don't reset it); if a separately-gated sub-track needs its own grouped checklist (e.g. an accelerated/parallel track), give its items a shared `subheading` and they'll render under their own `### <subheading>` inside Definition of Done.",
     rationale:
-      "The RC-wide Definition of Done is the global ship gate, not a wish list; tickets inherit it on top of their own acceptance criteria.",
+      "The RC-wide Definition of Done is the global ship gate, not a wish list; tickets inherit it on top of their own acceptance criteria. Checked state and any sub-track grouping must round-trip, not reset on every regenerate.",
   });
   return questions;
 }
@@ -847,8 +869,30 @@ function renderTaskout(plan: ConfirmedTaskoutPlan, today: string): string {
   if (plan.definitionOfDone.length === 0) {
     lines.push("- [ ] (none provided)");
   } else {
+    // Flat (no subheading) items render first, in document order; items carrying a
+    // subheading then render grouped under their own `### <subheading>`, in order of
+    // that subheading's first appearance — mirrors a file with a nested, separately-
+    // gated DOD checklist (e.g. an accelerated/parallel track) alongside the main list.
     for (const item of plan.definitionOfDone) {
-      lines.push(`- [ ] ${item}`);
+      if (item.subheading) continue;
+      lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+    }
+    const subheadingOrder: string[] = [];
+    const seenSubheadings = new Set<string>();
+    for (const item of plan.definitionOfDone) {
+      if (item.subheading && !seenSubheadings.has(item.subheading)) {
+        seenSubheadings.add(item.subheading);
+        subheadingOrder.push(item.subheading);
+      }
+    }
+    for (const subheading of subheadingOrder) {
+      lines.push("");
+      lines.push(`### ${subheading}`);
+      lines.push("");
+      for (const item of plan.definitionOfDone) {
+        if (item.subheading !== subheading) continue;
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+      }
     }
   }
   lines.push("");
@@ -926,6 +970,16 @@ function sameArray(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
     if (a[i].trim() !== b[i].trim()) return false;
+  }
+  return true;
+}
+
+function sameDoD(a: DoDItem[], b: DoDItem[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].text.trim() !== b[i].text.trim()) return false;
+    if (a[i].checked !== b[i].checked) return false;
+    if ((a[i].subheading ?? "") !== (b[i].subheading ?? "")) return false;
   }
   return true;
 }

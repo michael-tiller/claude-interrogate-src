@@ -600,7 +600,7 @@ function renderRCStub(
   lines.push("## Definition of Done");
   if (existing?.definitionOfDone?.length) {
     for (const item of existing.definitionOfDone) {
-      lines.push(`- [ ] ${item}`);
+      lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
     }
   } else {
     lines.push("- [ ] (Populated by /taskout)");

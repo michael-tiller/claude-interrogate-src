@@ -178,7 +178,7 @@ Per-ticket blocked-by + owner round-trip.
     expect(items[1].owner).toBeUndefined();
 
     // The DoD list parser (definitionOfDone) never reads these sub-bullets.
-    expect(parsed!.definitionOfDone).toEqual(["Ships."]);
+    expect(parsed!.definitionOfDone).toEqual([{ text: "Ships.", checked: false }]);
   });
 
   it("does not fold Blocked-by / Owner into the hashed item text", async () => {

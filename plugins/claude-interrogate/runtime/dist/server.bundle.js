@@ -22524,7 +22524,7 @@ async function parseRCFile(absolutePath) {
     goals: collectBullets(getSectionBody2(sections, "goals")),
     targeted: parseTargeted(sections),
     blockersAndDeps: parseBlockers(getSectionBody2(sections, "blockers")),
-    definitionOfDone: collectChecklistItems(getSectionBody2(sections, "definitionOfDone")),
+    definitionOfDone: parseDoDItems(getSectionBody2(sections, "definitionOfDone")),
     references: collectBullets(getSectionBody2(sections, "references")),
     raw
   };
@@ -22760,15 +22760,25 @@ function collectBullets(body) {
   }
   return bullets;
 }
-function collectChecklistItems(body) {
+function parseDoDItems(body) {
   if (!body) {
     return [];
   }
   const items = [];
+  let subheading;
   for (const line of body.split(/\r?\n/)) {
+    const heading = line.match(/^###\s+(.+?)\s*$/);
+    if (heading) {
+      subheading = heading[1].trim();
+      continue;
+    }
     const match = line.match(CHECKBOX_PATTERN);
     if (match) {
-      items.push(match[2].trim());
+      items.push({
+        text: match[2].trim(),
+        checked: match[1].toLowerCase() === "x",
+        ...subheading ? { subheading } : {}
+      });
     }
   }
   return items;
@@ -23334,7 +23344,7 @@ function renderRCStub(rc, today, plan, existing) {
   lines.push("## Definition of Done");
   if (existing?.definitionOfDone?.length) {
     for (const item of existing.definitionOfDone) {
-      lines.push(`- [ ] ${item}`);
+      lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
     }
   } else {
     lines.push("- [ ] (Populated by /taskout)");
@@ -23595,7 +23605,21 @@ function normalizeTaskoutPlan(plan) {
       throw new TaskoutError("invalid-plan", `confirmed_plan.${field} must be an array (got ${typeof value}).`);
     }
   }
+  plan.definitionOfDone = normalizeDoDItems(plan.definitionOfDone);
   return plan;
+}
+function normalizeDoDItems(items) {
+  return items.map((raw) => {
+    if (typeof raw === "string") {
+      return { text: raw, checked: false };
+    }
+    const item = raw;
+    return {
+      text: typeof item?.text === "string" ? item.text : "",
+      checked: Boolean(item?.checked),
+      ...typeof item?.subheading === "string" && item.subheading ? { subheading: item.subheading } : {}
+    };
+  });
 }
 function keyedTargeted(targeted, rcId) {
   const slugCounts = /* @__PURE__ */ new Map();
@@ -23806,7 +23830,7 @@ async function enforceShippedTaskoutLock(existing, plan) {
     changed.push("goals");
   if (!sameTargeted(existing.targeted, plan.targeted))
     changed.push("targeted");
-  if (!sameArray(existing.definitionOfDone, plan.definitionOfDone)) {
+  if (!sameDoD(existing.definitionOfDone, plan.definitionOfDone)) {
     changed.push("definitionOfDone");
   }
   if (plan.rc.milestone !== existing.milestone)
@@ -24022,8 +24046,8 @@ function buildTaskoutQuestions(rc, mode, techDebt, carried) {
   questions.push({
     id: "dod",
     theme: "Definition of Done",
-    question: "List 4-8 testable pass/fail assertions that gate ship for the whole RC \u2014 the shared bar every ticket also clears, distinct from per-ticket acceptance criteria.",
-    rationale: "The RC-wide Definition of Done is the global ship gate, not a wish list; tickets inherit it on top of their own acceptance criteria."
+    question: "List 4-8 testable pass/fail assertions that gate ship for the whole RC \u2014 the shared bar every ticket also clears, distinct from per-ticket acceptance criteria. In maintenance mode, echo each existing item's checked state back (don't reset it); if a separately-gated sub-track needs its own grouped checklist (e.g. an accelerated/parallel track), give its items a shared `subheading` and they'll render under their own `### <subheading>` inside Definition of Done.",
+    rationale: "The RC-wide Definition of Done is the global ship gate, not a wish list; tickets inherit it on top of their own acceptance criteria. Checked state and any sub-track grouping must round-trip, not reset on every regenerate."
   });
   return questions;
 }
@@ -24044,7 +24068,27 @@ function renderTaskout(plan, today) {
     lines.push("- [ ] (none provided)");
   } else {
     for (const item of plan.definitionOfDone) {
-      lines.push(`- [ ] ${item}`);
+      if (item.subheading)
+        continue;
+      lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+    }
+    const subheadingOrder = [];
+    const seenSubheadings = /* @__PURE__ */ new Set();
+    for (const item of plan.definitionOfDone) {
+      if (item.subheading && !seenSubheadings.has(item.subheading)) {
+        seenSubheadings.add(item.subheading);
+        subheadingOrder.push(item.subheading);
+      }
+    }
+    for (const subheading of subheadingOrder) {
+      lines.push("");
+      lines.push(`### ${subheading}`);
+      lines.push("");
+      for (const item of plan.definitionOfDone) {
+        if (item.subheading !== subheading)
+          continue;
+        lines.push(`- [${item.checked ? "x" : " "}] ${item.text}`);
+      }
     }
   }
   lines.push("");
@@ -24119,6 +24163,19 @@ function sameArray(a, b) {
     return false;
   for (let i = 0; i < a.length; i += 1) {
     if (a[i].trim() !== b[i].trim())
+      return false;
+  }
+  return true;
+}
+function sameDoD(a, b) {
+  if (a.length !== b.length)
+    return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].text.trim() !== b[i].text.trim())
+      return false;
+    if (a[i].checked !== b[i].checked)
+      return false;
+    if ((a[i].subheading ?? "") !== (b[i].subheading ?? ""))
       return false;
   }
   return true;

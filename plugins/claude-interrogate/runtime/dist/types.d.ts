@@ -190,6 +190,11 @@ export interface ConfirmedScopePlan {
     waypoints: MarketingWaypointAssignment[];
     overrides: ScopeOverride[];
 }
+export interface DoDItem {
+    text: string;
+    checked: boolean;
+    subheading?: string;
+}
 export interface TargetedSubsection {
     heading: string;
     items: {
@@ -215,7 +220,7 @@ export interface ConfirmedTaskoutPlan {
     goals: string[];
     targeted: TargetedSubsection[];
     blockersAndDeps: BlockerEntry[];
-    definitionOfDone: string[];
+    definitionOfDone: DoDItem[];
     references: string[];
     overrides: ShippedLockOverride[];
 }
@@ -240,7 +245,7 @@ export interface TaskoutDraftSections {
     goals: string[];
     targeted: TargetedSubsection[];
     blockersAndDeps: BlockerEntry[];
-    definitionOfDone: string[];
+    definitionOfDone: DoDItem[];
     references: string[];
 }
 export interface TaskoutStartResult {
@@ -292,7 +297,7 @@ export interface ParsedRC {
     goals: string[];
     targeted: TargetedSubsection[];
     blockersAndDeps: BlockerEntry[];
-    definitionOfDone: string[];
+    definitionOfDone: DoDItem[];
     references: string[];
     raw: string;
 }
@@ -375,7 +380,7 @@ export interface TaskoutExportResult {
     goals: string[];
     targeted: TaskoutExportSection[];
     blockersAndDeps: BlockerEntry[];
-    definitionOfDone: string[];
+    definitionOfDone: DoDItem[];
     references: string[];
     /** Ordering health (additive; always present). Empty lists = clean. See {@link OrderDiagnostics}. */
     orderDiagnostics: OrderDiagnostics;
