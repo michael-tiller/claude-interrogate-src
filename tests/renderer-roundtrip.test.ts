@@ -67,7 +67,13 @@ function buildTaskoutPlan(): ConfirmedTaskoutPlan {
     // Deep-clone so each test mutates nothing shared.
     targeted: JSON.parse(JSON.stringify(TARGETED_WITH_FULL_SPEC)),
     blockersAndDeps: [],
-    definitionOfDone: ["Ships clean.", "Round-trips byte-identical.", "Keys never move."],
+    definitionOfDone: [
+      { text: "Ships clean.", checked: true },
+      { text: "Round-trips byte-identical.", checked: false },
+      { text: "Keys never move.", checked: true },
+      { text: "Accelerated track item.", checked: true, subheading: "Accelerated Track" },
+      { text: "Second accelerated item.", checked: false, subheading: "Accelerated Track" },
+    ],
     references: ["Concept/roundtrip.md"],
     overrides: [],
   };
@@ -115,11 +121,22 @@ describe("renderTaskout round-trip", () => {
     );
     expect(firstMd).toContain("  - Owner: Alice");
 
+    // Definition of Done: checked state persists per item, and a nested `### <subheading>`
+    // checklist (e.g. an accelerated/parallel track) renders as its own grouped section
+    // rather than collapsing into the flat top-level list.
+    expect(firstMd).toContain("- [x] Ships clean.");
+    expect(firstMd).toContain("- [ ] Round-trips byte-identical.");
+    expect(firstMd).toContain("- [x] Keys never move.");
+    expect(firstMd).toContain("### Accelerated Track");
+    expect(firstMd).toContain("- [x] Accelerated track item.");
+    expect(firstMd).toContain("- [ ] Second accelerated item.");
+
     // Parse the rendered file back into a plan, then re-render through the SAME path
     // into a clean dir (bootstrap refuses to overwrite, so a fresh dir keeps the
     // second pass byte-comparable to the first).
     const parsed = await parseRCFile(first.path);
     expect(parsed).not.toBeNull();
+    expect(parsed!.definitionOfDone).toEqual(plan.definitionOfDone);
     const replan: ConfirmedTaskoutPlan = {
       ...plan,
       theme: parsed!.theme ?? "",

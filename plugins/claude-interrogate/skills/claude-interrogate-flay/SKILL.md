@@ -46,8 +46,8 @@ additive — a legacy file without them predates branch discipline (treat the cu
 branch as base, skip the auto-PR). See **Branch discipline**.
 
 Rewrite it at EVERY phase transition. Delete it on done or abandon, and prepend an
-outcome line to `scratch.md` (e.g. `- flayed <key>: committed <hash> as Needs-QA`).
-Create `.captain-sdlc/` lazily; ensure the consuming project gitignores
+outcome line to `.captain-sdlc/flay-log.md` (e.g. `- flayed <key>: committed <hash> as Needs-QA`).
+Create `.captain-sdlc/` lazily. `flay-log.md` is the DURABLE, committed flay audit trail (newest-first, created lazily) — NOT churning state, so the consuming project gitignores
 `flay-state.json` (it is churning local state — see captain-sdlc conventions).
 Unknown `schema_version` in an existing file → refuse and ask the human.
 
@@ -110,7 +110,7 @@ reviewable unit.
 
 0. **Stale-state gate.** If `flay-state.json` already exists, STOP and offer:
    resume (continue from its recorded phase) or abandon (delete it, log the
-   abandonment to scratch.md). Never silently overwrite — a second flay while one
+   abandonment to `.captain-sdlc/flay-log.md`). Never silently overwrite — a second flay while one
    is active forces this decision first.
 1. **Assigned.** Validate the key against a fresh `design_taskout_export` for its
    RC (key prefix before the first `#`). Exact match only. Unknown key → stop,
@@ -262,7 +262,7 @@ reviewable unit.
    delete the state file AND clear this key's entry from
    `.captain-sdlc/blocked-hitl.json` if present (the HITL resume completed, so the
    downgrade marker has served its purpose — leaving it would wrongly cancel a future
-   `/flay-auto` on the same key). Prepend the scratch.md outcome line, report: key,
+   `/flay-auto` on the same key). Prepend the `.captain-sdlc/flay-log.md` outcome line, report: key,
    phases walked, verify result, commit hash, footer verb. If the item was
    taste-laden and vibe-shipped, also append its finalize-UI follow-up to
    `.captain-sdlc/taste-debt.md` (see **Taste gate**).

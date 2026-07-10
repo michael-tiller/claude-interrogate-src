@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and the project uses Semantic Versioning.
 
+## [0.1.25] - 2026-07-10
+
+### Changed
+
+- **Flay outcome log moved out of `scratch.md` into a dedicated `.captain-sdlc/flay-log.md`.** `/flay` and `/flay-auto` now prepend the done/abandon outcome line to `flay-log.md` — a durable, committed, newest-first audit trail — instead of `scratch.md`, the ephemeral in-flight register that heals to empty and is the wrong home for a persistent flay record. Skill + `/flay` command doc retargeted; the skill clarifies `flay-log.md` is committed (unlike the gitignored `flay-state.json`).
+
+### Fixed
+
+- **Definition-of-Done checked state and nested subsections now round-trip.** `definitionOfDone` was typed `string[]`, so every `design_taskout_generate` maintenance pass silently reset every RC's DOD checkboxes to unchecked, and a nested `### <subheading>` checklist under `## Definition of Done` (e.g. a separately-gated accelerated/parallel track) collapsed into the flat list, losing its own grouping. New `DoDItem { text, checked, subheading? }` carries checked state and subsection grouping end-to-end through `parseRCFile`, `ConfirmedTaskoutPlan`, and `renderTaskout`; `design_taskout_start`'s DOD interview question now tells the caller to echo checked state back and how to group a sub-track. Found and reproduced against dirigible2D's `M04_CLASSES_SKILLS` RC file (a `.draft.md` diff showed 56→47 checked items before promotion was caught and aborted). 144/144 tests green, including a new explicit round-trip assertion for mixed checked-state + subheading grouping.
+
+## [0.1.24] - 2026-06-30
+
+### Fixed
+
+- **Inquisitor carry-redirect detection** — the RC-walk no longer wedges on a pre-ADR-0030 source-RC breadcrumb. Such a roadmap leaves an *unchecked* `CARRIED to <RC>` (or `→ M{NN}`) pointer in the source milestone whose live form is a fresh box in the destination milestone; the walk treated that pointer as open work and never advanced past it. Now an RC whose only unchecked items are carry-redirects is treated as fully checked and stepped past, and carry-redirects are excluded from auto-pick (dispatching one would hand flay-auto an empty pointer with no spec).
+- **Inquisitor in-review detection** — auto-pick now skips work that is built but not yet QA-closed. Because the roadmap checkbox is binary, an item flayed to a `Needs-QA:` (or mid-build `Implements:`) footer still reads `[ ]` and looked identical to fresh to-do, so the autopilot would re-dispatch it to be rebuilt from scratch (flay's own gate only catches the terminal `[x]`). The walk now resolves the latest Seam-7 footer verb per item key — reusing `release-pass --list-transitions` when the engine is reachable, else parsing commit footers inline with `git log`, and degrading to today's binary behavior when neither is available — and routes in-review items to the needs-a-human bucket. Markdown stays binary (clickup protocol Principle 1): no new glyph, no hard dependency on the ClickUp mirror. Residual gap documented in the skill: work built entirely outside the Seam-7 flow leaves no footer and cannot be caught at pick time (a process guard, not detection).
+
 ## [0.1.23] - 2026-06-23
 
 ### Added

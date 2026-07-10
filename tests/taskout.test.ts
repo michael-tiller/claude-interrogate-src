@@ -202,7 +202,10 @@ function buildTaskoutPlan(rc: RCMetadata): ConfirmedTaskoutPlan {
       },
     ],
     blockersAndDeps: [],
-    definitionOfDone: ["Criterion 1.", "Criterion 2."],
+    definitionOfDone: [
+      { text: "Criterion 1.", checked: false },
+      { text: "Criterion 2.", checked: false },
+    ],
     references: ["Concept/quests.md"],
     overrides: [],
   };
@@ -399,7 +402,10 @@ describe("generateTaskout — Shipped diff enforcement", () => {
         },
       ],
       blockersAndDeps: [],
-      definitionOfDone: ["Original DoD A", "Original DoD B"],
+      definitionOfDone: [
+        { text: "Original DoD A", checked: true },
+        { text: "Original DoD B", checked: true },
+      ],
       references: ["Concept/core.md", "Plan/post_ship_followups.md"],
       overrides: [],
     };
@@ -433,7 +439,10 @@ describe("generateTaskout — Shipped diff enforcement", () => {
         },
       ],
       blockersAndDeps: [],
-      definitionOfDone: ["Restated DoD A", "Original DoD B"],
+      definitionOfDone: [
+        { text: "Restated DoD A", checked: true },
+        { text: "Original DoD B", checked: true },
+      ],
       references: ["Concept/core.md"],
       overrides: [],
     };
@@ -468,7 +477,10 @@ describe("generateTaskout — Shipped diff enforcement", () => {
         },
       ],
       blockersAndDeps: [],
-      definitionOfDone: ["Restated DoD A", "Original DoD B"],
+      definitionOfDone: [
+        { text: "Restated DoD A", checked: true },
+        { text: "Original DoD B", checked: true },
+      ],
       references: ["Concept/core.md"],
       overrides: [
         {

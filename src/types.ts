@@ -230,6 +230,15 @@ export interface ConfirmedScopePlan {
   overrides: ScopeOverride[];
 }
 
+export interface DoDItem {
+  text: string;
+  checked: boolean;
+  // Set only when this item lives under a nested `### <subheading>` grouping within
+  // `## Definition of Done` (e.g. a separately-gated accelerated/parallel track).
+  // Absent items render as the flat top-level DOD list, in document order.
+  subheading?: string;
+}
+
 export interface TargetedSubsection {
   heading: string;
   // Per-ticket fields beyond the checkbox text, each held separately so item keys
@@ -270,7 +279,7 @@ export interface ConfirmedTaskoutPlan {
   goals: string[];
   targeted: TargetedSubsection[];
   blockersAndDeps: BlockerEntry[];
-  definitionOfDone: string[];
+  definitionOfDone: DoDItem[];
   references: string[];
   overrides: ShippedLockOverride[];
 }
@@ -300,7 +309,7 @@ export interface TaskoutDraftSections {
   goals: string[];
   targeted: TargetedSubsection[];
   blockersAndDeps: BlockerEntry[];
-  definitionOfDone: string[];
+  definitionOfDone: DoDItem[];
   references: string[];
 }
 
@@ -345,7 +354,7 @@ export interface ParsedRC {
   goals: string[];
   targeted: TargetedSubsection[];
   blockersAndDeps: BlockerEntry[];
-  definitionOfDone: string[];
+  definitionOfDone: DoDItem[];
   references: string[];
   raw: string;
 }
@@ -436,7 +445,7 @@ export interface TaskoutExportResult {
   goals: string[];
   targeted: TaskoutExportSection[];
   blockersAndDeps: BlockerEntry[];
-  definitionOfDone: string[];
+  definitionOfDone: DoDItem[];
   references: string[];
   /** Ordering health (additive; always present). Empty lists = clean. See {@link OrderDiagnostics}. */
   orderDiagnostics: OrderDiagnostics;

@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   BlockerEntry,
+  DoDItem,
   ParsedRC,
   ParsedRoadmapIndex,
   ParsedRoadmapRCRow,
@@ -100,7 +101,7 @@ export async function parseRCFile(absolutePath: string): Promise<ParsedRC | null
     goals: collectBullets(getSectionBody(sections, "goals")),
     targeted: parseTargeted(sections),
     blockersAndDeps: parseBlockers(getSectionBody(sections, "blockers")),
-    definitionOfDone: collectChecklistItems(getSectionBody(sections, "definitionOfDone")),
+    definitionOfDone: parseDoDItems(getSectionBody(sections, "definitionOfDone")),
     references: collectBullets(getSectionBody(sections, "references")),
     raw,
   };
@@ -391,15 +392,30 @@ function collectBullets(body: string | undefined): string[] {
   return bullets;
 }
 
-function collectChecklistItems(body: string | undefined): string[] {
+// `## Definition of Done` may carry a nested `### <subheading>` checklist (e.g. a
+// separately-gated accelerated/parallel track) alongside its flat top-level items.
+// `collectSections` already folds those nested heading lines + their items into this
+// section's raw body (level 3 > level 2 doesn't flush), so walk that body directly,
+// tracking the current subheading and each item's checked state as we go.
+function parseDoDItems(body: string | undefined): DoDItem[] {
   if (!body) {
     return [];
   }
-  const items: string[] = [];
+  const items: DoDItem[] = [];
+  let subheading: string | undefined;
   for (const line of body.split(/\r?\n/)) {
+    const heading = line.match(/^###\s+(.+?)\s*$/);
+    if (heading) {
+      subheading = heading[1].trim();
+      continue;
+    }
     const match = line.match(CHECKBOX_PATTERN);
     if (match) {
-      items.push(match[2].trim());
+      items.push({
+        text: match[2].trim(),
+        checked: match[1].toLowerCase() === "x",
+        ...(subheading ? { subheading } : {}),
+      });
     }
   }
   return items;
